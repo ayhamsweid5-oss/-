@@ -1,0 +1,3 @@
+require('dotenv').config();
+const crypto=require('crypto'); const {bcrypt}=require('./auth'); const db=require('./db');
+(async()=>{const username=process.env.ADMIN_USERNAME||'admin';const password=process.env.ADMIN_PASSWORD;if(!password)throw new Error('Set ADMIN_PASSWORD before seeding');const hash=await bcrypt.hash(password,12);await db.query('INSERT INTO users(id,username,password_hash,role) VALUES($1,$2,$3,$4) ON CONFLICT(username) DO UPDATE SET password_hash=EXCLUDED.password_hash,role=EXCLUDED.role',[crypto.randomUUID(),username,hash,'admin']);console.log(`Admin user ready: ${username}`);process.exit(0)})().catch(e=>{console.error(e);process.exit(1)});

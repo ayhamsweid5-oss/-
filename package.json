@@ -1,0 +1,10 @@
+{
+  "name": "makhzani",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Makhzani inventory MVP",
+  "main": "main.js",
+  "scripts": {"start": "electron .", "install-app": "npm install"},
+  "devDependencies": {"electron": "^31.0.0"},
+  "dependencies": {"realm": "^12.14.1"}
+}

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "objects": [
+    {"name":"Product","primaryKey":"id","properties":{"id":"string","name":"string","sku":"string","category":"string","purchasePrice":"double","salePrice":"double","quantity":"double","minQuantity":"double","unit":"string","createdAt":"string","updatedAt":"string"}},
+    {"name":"Transaction","primaryKey":"id","properties":{"id":"string","type":"string","productId":"string","productName":"string","quantity":"double","note":"string","date":"string"}}
+  ]
+}

@@ -1,0 +1,16 @@
+require('dotenv').config();
+const path=require('path');
+const express=require('express'); const http=require('http'); const cors=require('cors'); const jwt=require('jsonwebtoken'); const {Server}=require('socket.io'); const {login,requireAuth}=require('./auth');
+const apiRoutes=require('./routes');
+const app=express(); const server=http.createServer(app); const io=new Server(server,{cors:{origin:process.env.CORS_ORIGIN||'*'}});
+app.use(cors({origin:process.env.CORS_ORIGIN||'*'})); app.use(express.json());
+app.get('/',(req,res)=>res.sendFile(path.resolve(__dirname,'../../Qwen_html_20260809_6pme50i2b.html')));
+app.get('/web-data-adapter.js',(req,res)=>res.sendFile(path.resolve(__dirname,'../../web-data-adapter.js')));
+app.get('/api/health',(req,res)=>res.json({ok:true,service:'makhzani-server'}));
+app.post('/api/auth/login',async(req,res)=>{try{const token=await login(req.body.username,req.body.password); if(!token)return res.status(401).json({error:'INVALID_CREDENTIALS'}); res.json({token});}catch(e){res.status(500).json({error:'AUTH_ERROR'});}});
+app.use('/api',requireAuth); app.get('/api/session',(req,res)=>res.json({user:req.user}));
+app.use('/api',apiRoutes.setRealtime(event=>io.emit('data.changed',event)));
+io.use((socket,next)=>{try{const token=socket.handshake.auth&&socket.handshake.auth.token;socket.user=jwt.verify(token,process.env.JWT_SECRET);next()}catch{next(new Error('UNAUTHORIZED'))}});
+io.on('connection',socket=>{socket.join('inventory');socket.on('join',room=>{if(typeof room==='string'&&room.length<80)socket.join(room);});});
+app.use((err,req,res,next)=>{console.error(err);res.status(500).json({error:'INTERNAL_ERROR'});});
+const port=Number(process.env.PORT||3000); server.listen(port,'0.0.0.0',()=>console.log(`Makhzani API listening on :${port}`));
