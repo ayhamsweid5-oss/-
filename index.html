@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مخزني — نظام إدارة المخازن</title>
+
+<!-- خطوط: Changa للعناوين والأرقام + IBM Plex Sans Arabic للنصوص (تعمل بدائل النظام تلقائيًا دون اتصال) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Changa:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ==========================================================
+   1) المتغيرات العامة وإعادة الضبط
+   ========================================================== */
+:root{
+  --bg:#EFF2EC;            --surface:#FFFFFF;       --panel-head:#F6F8F4;
+  --ink:#16241F;           --muted:#5D6E66;         --line:#DCE3DA;
+  --brand:#0E7C5B;         --brand-dark:#0A5A43;    --brand-soft:#E0F0E8;
+  --amber:#B97407;         --amber-soft:#FCF0DC;
+  --danger:#C63B2E;        --danger-soft:#FBE7E4;
+  --info:#1F6FB2;          --info-soft:#E3EFF8;
+  --side:#0D211B;          --side-line:rgba(255,255,255,.08);
+  --radius:14px;
+  --shadow:0 10px 30px rgba(15,40,30,.08);
+  --font-body:'IBM Plex Sans Arabic','Segoe UI',Tahoma,sans-serif;
+  --font-display:'Changa',var(--font-body);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-body); color:var(--ink); background:var(--bg);
+  font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+::selection{background:var(--brand-soft)}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+
+/* شريط تمرير أنيق */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#C6D2C6;border-radius:8px;border:2px solid var(--bg)}
+
+/* ==========================================================
+   2) هيكل التطبيق: الشريط الجانبي + المحتوى
+   ========================================================== */
+.app{display:grid;grid-template-columns:262px 1fr;min-height:100vh}
+
+.sidebar{
+  position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+  color:#C7D8CF;padding:22px 16px;overflow-y:auto;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 26px,rgba(255,255,255,.022) 26px 27px),
+    linear-gradient(180deg,#10281F 0%,#0B1D17 100%);
+}
+.brand{display:flex;align-items:center;gap:12px;padding:4px 8px 20px;border-bottom:1px solid var(--side-line)}
+.brand-badge{
+  width:46px;height:46px;flex:none;display:grid;place-items:center;border-radius:13px;
+  background:linear-gradient(135deg,#178A63,#0C5B41);color:#FFE9C2;
+  box-shadow:0 6px 16px rgba(14,124,91,.35);
+}
+.brand h1{font-family:var(--font-display);font-weight:800;font-size:22px;color:#fff;line-height:1.1}
+.brand small{font-size:11.5px;color:#8FAF9F}
+
+.side-nav{display:flex;flex-direction:column;gap:6px;margin-top:20px}
+.nav-btn{
+  display:flex;align-items:center;gap:11px;width:100%;padding:11px 13px;border-radius:10px;
+  color:#B9CDC4;font-weight:500;font-size:14px;text-align:right;position:relative;
+  transition:background .18s,color .18s,transform .18s;
+}
+.nav-btn svg{flex:none;opacity:.85}
+.nav-btn:hover{background:rgba(255,255,255,.06);color:#fff;transform:translateX(-2px)}
+.nav-btn.is-active{background:linear-gradient(90deg,rgba(23,138,99,.35),rgba(23,138,99,.12));color:#fff}
+.nav-btn.is-active::before{
+  content:'';position:absolute;inset-inline-start:-16px;top:9px;bottom:9px;width:4px;
+  border-radius:4px;background:#F0A31B;
+}
+
+.sidebar-foot{margin-top:auto;padding-top:18px;border-top:1px solid var(--side-line);display:flex;flex-direction:column;gap:10px}
+.side-stat{font-size:11.5px;color:#8FAF9F;line-height:1.8}
+.side-stat b{color:#E4F0E9;font-weight:600}
+.side-actions{display:flex;gap:8px}
+.side-actions button{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 6px;border-radius:9px;border:1px solid var(--side-line);
+  color:#C7D8CF;font-size:12px;font-weight:600;transition:.18s;
+}
+.side-actions button:hover{border-color:#2E9C77;color:#fff;background:rgba(46,156,119,.15)}
+.side-ver{font-size:10.5px;color:#5E7B6F;text-align:center}
+
+.main{
+  min-width:0;padding:22px clamp(16px,3.5vw,36px) 60px;
+  background:radial-gradient(rgba(14,60,45,.055) 1px,transparent 1px) 0 0/22px 22px,var(--bg);
+}
+
+/* الشريط العلوي */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--line);
+}
+.topbar h2{font-family:var(--font-display);font-weight:700;font-size:24px;line-height:1.2}
+.subtitle{font-size:12.5px;color:var(--muted)}
+.topbar-tools{display:flex;align-items:center;gap:10px}
+.date-chip{
+  font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);
+  border:1px solid var(--line);border-radius:99px;padding:7px 14px;
+}
+.bell{
+  position:relative;width:42px;height:42px;display:grid;place-items:center;border-radius:12px;
+  background:var(--surface);border:1px solid var(--line);color:var(--ink);transition:.18s;
+}
+.bell:hover{border-color:var(--amber);color:var(--amber);transform:translateY(-1px)}
+.bell-badge{
+  position:absolute;top:-6px;inset-inline-start:-6px;min-width:20px;height:20px;padding:0 5px;
+  display:none;place-items:center;border-radius:99px;background:var(--danger);color:#fff;
+  font-size:11px;font-weight:700;border:2px solid var(--bg);
+}
+.bell-badge.show{display:grid;animation:ping 2.2s infinite}
+@keyframes ping{0%,100%{box-shadow:0 0 0 0 rgba(198,59,46,.45)}50%{box-shadow:0 0 0 7px rgba(198,59,46,0)}}
+
+/* ==========================================================
+   3) العروض (Views)
+   ========================================================== */
+.view{display:none}
+.view.is-active{display:block;animation:fadeUp .3s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* --- شريط التنبيهات --- */
+.alert-strip{
+  display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;
+  border:1px solid;border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;
+}
+.alert-strip.is-warn{background:var(--amber-soft);border-color:#EAD2A4}
+.alert-strip.is-danger{background:var(--danger-soft);border-color:#F0C4BE}
+.alert-strip.is-ok{background:var(--brand-soft);border-color:#BFE0D0}
+.as-title{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px;flex:none}
+.is-warn .as-title{color:var(--amber)} .is-danger .as-title{color:var(--danger)} .is-ok .as-title{color:var(--brand-dark)}
+.as-title svg{animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.as-items{display:flex;flex-wrap:wrap;gap:8px;flex:1}
+.as-item{
+  display:inline-flex;align-items:center;gap:9px;background:var(--surface);
+  border:1px solid var(--line);border-radius:99px;padding:5px 6px 5px 14px;font-size:12.5px;
+}
+.as-item strong{font-weight:700}
+.as-item .tag{font-weight:700;font-size:11.5px}
+.tag-out{color:var(--danger)} .tag-low{color:var(--amber)}
+.as-item button{
+  background:var(--brand);color:#fff;border-radius:99px;padding:4px 12px;font-size:11.5px;font-weight:700;
+  transition:.15s;
+}
+.as-item button:hover{background:var(--brand-dark)}
+.as-ok-msg{font-size:13px;color:var(--brand-dark);font-weight:600}
+
+/* --- شبكة المؤشرات --- */
+.dash-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;margin-bottom:16px}
+.panel{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:0 2px 8px rgba(15,40,30,.04);
+}
+.value-panel{grid-column:span 7;padding:20px 22px;position:relative;overflow:hidden}
+.value-panel::after{
+  content:'';position:absolute;width:220px;height:220px;border-radius:50%;inset-inline-end:-70px;top:-90px;
+  background:radial-gradient(circle,rgba(14,124,91,.09),transparent 70%);pointer-events:none;
+}
+.vp-label{font-size:12.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:7px}
+.vp-label svg{color:var(--brand)}
+.vp-big{font-family:var(--font-display);font-weight:800;font-size:clamp(30px,4vw,42px);color:var(--brand-dark);line-height:1.25}
+.vp-subs{display:flex;gap:26px;flex-wrap:wrap;margin:6px 0 16px}
+.vp-sub span{display:block;font-size:11.5px;color:var(--muted)}
+.vp-sub b{font-family:var(--font-display);font-size:16.5px;font-weight:700}
+.vp-sub .pos{color:var(--brand)}
+.cat-bar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--bg)}
+.cat-seg{transition:width .8s cubic-bezier(.2,.7,.2,1)}
+.cat-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.lg b{color:var(--ink)}
+
+.tiles{grid-column:span 5;display:grid;gap:14px}
+.tile{
+  display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:14px 18px;transition:.2s;box-shadow:0 2px 8px rgba(15,40,30,.04);
+}
+.tile:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.t-icon{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:12px}
+.tile b{display:block;font-family:var(--font-display);font-size:24px;font-weight:800;line-height:1.2}
+.tile span{font-size:12px;color:var(--muted);font-weight:500}
+.ti-brand{background:var(--brand-soft);color:var(--brand)}
+.ti-info{background:var(--info-soft);color:var(--info)}
+.ti-warn{background:var(--amber-soft);color:var(--amber)}
+.ti-danger{background:var(--danger-soft);color:var(--danger)}
+
+/* --- أعمدة لوحة التحكم --- */
+.dash-cols{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panel-head);
+  border-radius:var(--radius) var(--radius) 0 0;
+}
+.panel-head h3{font-family:var(--font-display);font-size:15.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.panel-head h3 svg{color:var(--brand)}
+.link-btn{font-size:12px;font-weight:700;color:var(--brand);transition:.15s}
+.link-btn:hover{color:var(--brand-dark);transform:translateX(-2px)}
+.panel-body{padding:8px 18px 14px}
+
+.mov-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line)}
+.mov-item:last-child{border-bottom:none}
+.m-icon{width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:10px}
+.m-in{background:var(--brand-soft);color:var(--brand)}
+.m-out{background:var(--danger-soft);color:var(--danger)}
+.m-info{flex:1;min-width:0}
+.m-info strong{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-info small{font-size:11px;color:var(--muted)}
+.m-qty{font-family:var(--font-display);font-weight:700;font-size:14px}
+.m-qty.in{color:var(--brand)} .m-qty.out{color:var(--danger)}
+
+.top-item{padding:9px 0;border-bottom:1px dashed var(--line)}
+.top-item:last-child{border-bottom:none}
+.t-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:5px}
+.t-row b{font-family:var(--font-display)}
+.t-bar{height:7px;border-radius:99px;background:var(--bg);overflow:hidden}
+.t-bar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),#2AA37C);animation:grow .8s cubic-bezier(.2,.7,.2,1) both}
+@keyframes grow{from{width:0 !important}}
+
+/* ==========================================================
+   4) أشرطة الأدوات والجداول
+   ========================================================== */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.search-box{position:relative;flex:1;min-width:220px}
+.search-box svg{position:absolute;inset-inline-start:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search-box input{
+  width:100%;padding:10px 40px 10px 14px;border:1px solid var(--line);border-radius:11px;
+  background:var(--surface);transition:.18s;
+}
+.search-box input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.count-chip{font-size:12px;font-weight:700;color:var(--brand-dark);background:var(--brand-soft);border-radius:99px;padding:7px 14px;white-space:nowrap}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  padding:7px 15px;border-radius:99px;border:1px solid var(--line);background:var(--surface);
+  font-size:12.5px;font-weight:600;color:var(--muted);transition:.15s;
+}
+.chip:hover{border-color:var(--brand);color:var(--brand)}
+.chip.is-active{background:var(--ink);border-color:var(--ink);color:#fff}
+select.filter{
+  padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface);
+  font-size:13px;font-weight:500;cursor:pointer;
+}
+
+.table-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 2px 8px rgba(15,40,30,.04);overflow:hidden}
+.table-scroll{overflow:auto;max-height:calc(100vh - 265px)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+thead th{
+  position:sticky;top:0;z-index:2;background:var(--panel-head);color:var(--muted);
+  font-size:11.5px;font-weight:700;text-align:right;padding:11px 16px;white-space:nowrap;
+  border-bottom:1px solid var(--line);
+}
+tbody td{padding:11px 16px;border-bottom:1px solid #ECF0EA;vertical-align:middle}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:#F7FAF6}
+tbody tr:last-child td{border-bottom:none}
+tr.row-flash{animation:flashRow 1.4s ease}
+@keyframes flashRow{0%{background:var(--brand-soft)}100%{background:transparent}}
+td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
+
+.p-cell{display:flex;align-items:center;gap:11px}
+.p-thumb{
+  width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:10px;
+  font-family:var(--font-display);font-weight:700;font-size:15px;color:#fff;
+}
+.p-name strong{display:block;font-size:13.5px}
+.p-name small{font-size:11px;color:var(--muted);font-family:monospace;letter-spacing:.4px}
+.cat-chip{font-size:11.5px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:4px 11px;white-space:nowrap}
+
+.qty-cell{display:flex;align-items:center;justify-content:center;gap:5px}
+.qty-cell b{min-width:34px;text-align:center;font-family:var(--font-display);font-size:15px}
+.qty-btn{
+  width:26px;height:26px;display:grid;place-items:center;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface);color:var(--muted);transition:.15s;
+}
+.qty-btn:hover{transform:scale(1.12)}
+.qty-btn.plus:hover{background:var(--brand);border-color:var(--brand);color:#fff}
+.qty-btn.minus:hover{background:var(--danger);border-color:var(--danger);color:#fff}
+
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:99px;padding:4px 11px;white-space:nowrap}
+.badge .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.b-ok{background:var(--brand-soft);color:var(--brand-dark)}
+.b-low{background:var(--amber-soft);color:var(--amber)}
+.b-low .dot{animation:pulse 1.5s infinite}
+.b-out{background:var(--danger-soft);color:var(--danger)}
+.b-out .dot{animation:pulse 1.1s infinite}
+.b-in{background:var(--brand-soft);color:var(--brand-dark)}
+.b-out-t{background:var(--danger-soft);color:var(--danger)}
+
+.actions{display:flex;gap:6px;justify-content:center}
+.act{
+  width:32px;height:32px;display:grid;place-items:center;border-radius:9px;border:1px solid var(--line);
+  background:var(--surface);color:var(--muted);transition:.15s;
+}
+.act:hover{transform:translateY(-2px)}
+.act.a-edit:hover{background:var(--info-soft);border-color:var(--info);color:var(--info)}
+.act.a-in:hover{background:var(--brand-soft);border-color:var(--brand);color:var(--brand)}
+.act.a-out:hover{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
+.act.a-del:hover{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
+
+.empty{padding:56px 20px;text-align:center;color:var(--muted)}
+.empty svg{color:#B8C6BB;margin-bottom:12px}
+.empty h4{font-family:var(--font-display);font-size:17px;color:var(--ink);margin-bottom:4px}
+.empty p{font-size:13px;margin-bottom:16px}
+
+/* ==========================================================
+   5) الأزرار
+   ========================================================== */
+.btn{
+  display:inline-flex;align-items:center;gap:8px;padding:10px 17px;border-radius:11px;
+  font-weight:700;font-size:13.5px;border:1px solid transparent;transition:.18s;white-space:nowrap;
+}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--brand);color:#fff;box-shadow:0 4px 12px rgba(14,124,91,.28)}
+.btn-primary:hover{background:var(--brand-dark);transform:translateY(-1px)}
+.btn-warn{background:var(--amber);color:#fff;box-shadow:0 4px 12px rgba(185,116,7,.28)}
+.btn-warn:hover{background:#9A6005;transform:translateY(-1px)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#A82F24;transform:translateY(-1px)}
+.btn-ghost{background:var(--surface);border-color:var(--line);color:var(--ink);font-weight:600}
+.btn-ghost:hover{border-color:var(--brand);color:var(--brand)}
+
+/* ==========================================================
+   6) النوافذ المنبثقة والنماذج
+   ========================================================== */
+.modal-overlay{
+  position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
+  padding:18px;background:rgba(9,24,19,.55);
+}
+.modal-overlay.open{display:flex;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0}}
+.modal-panel{
+  width:min(600px,100%);max-height:92vh;overflow-y:auto;background:var(--surface);
+  border-radius:16px;box-shadow:0 30px 70px rgba(0,0,0,.35);
+  animation:pop .26s cubic-bezier(.2,.9,.3,1.15);
+  border-top:4px solid var(--brand);
+}
+.modal-panel.mode-out{border-top-color:var(--amber)}
+.modal-panel.mode-danger{border-top-color:var(--danger)}
+@keyframes pop{from{opacity:0;transform:translateY(16px) scale(.97)}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:17px 22px;border-bottom:1px solid var(--line)}
+.modal-head h3{font-family:var(--font-display);font-size:17px;font-weight:700}
+.modal-close{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;color:var(--muted);transition:.15s}
+.modal-close:hover{background:var(--danger-soft);color:var(--danger)}
+.modal-body{padding:20px 22px}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:15px 22px;border-top:1px solid var(--line);background:var(--panel-head);border-radius:0 0 16px 16px}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{display:flex;flex-direction:column}
+.field.span-2{grid-column:span 2}
+.field label{font-size:12.5px;font-weight:700;margin-bottom:6px}
+.field label i{font-style:normal;color:var(--muted);font-weight:500;font-size:11px}
+.field input,.field select{
+  width:100%;padding:10px 13px;border:1px solid var(--line);border-radius:10px;background:#FBFCFA;transition:.18s;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);background:#fff}
+.field input:disabled{background:var(--bg);color:var(--muted);cursor:not-allowed}
+.field.invalid input,.field.invalid select{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-soft)}
+.err{min-height:16px;font-size:11.5px;color:var(--danger);font-weight:600;margin-top:3px}
+.hint{font-size:11.5px;color:var(--muted);margin-top:5px}
+.stock-hint{
+  display:flex;align-items:center;gap:8px;margin-top:10px;padding:10px 14px;border-radius:10px;
+  background:var(--panel-head);border:1px dashed var(--line);font-size:12.5px;color:var(--muted);
+}
+.stock-hint b{color:var(--ink);font-family:var(--font-display)}
+
+/* ==========================================================
+   7) التنبيهات المنبثقة (Toasts)
+   ========================================================== */
+.toast-stack{position:fixed;bottom:22px;inset-inline-start:22px;z-index:100;display:flex;flex-direction:column;gap:10px;max-width:min(380px,90vw)}
+.toast{
+  display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);
+  border-inline-start:4px solid var(--brand);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:600;
+  box-shadow:0 12px 30px rgba(15,40,30,.18);animation:toastIn .32s cubic-bezier(.2,.9,.3,1.2);
+}
+.toast svg{flex:none}
+.toast.t-success{border-inline-start-color:var(--brand)} .toast.t-success svg{color:var(--brand)}
+.toast.t-warn{border-inline-start-color:var(--amber)}    .toast.t-warn svg{color:var(--amber)}
+.toast.t-error{border-inline-start-color:var(--danger)}  .toast.t-error svg{color:var(--danger)}
+.toast.t-info{border-inline-start-color:var(--info)}     .toast.t-info svg{color:var(--info)}
+.toast.out{animation:toastOut .3s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.96)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(10px)}}
+
+/* ==========================================================
+   8) التجاوب
+   ========================================================== */
+@media (max-width:1080px){
+  .value-panel{grid-column:span 12}
+  .tiles{grid-column:span 12;grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:920px){
+  .app{grid-template-columns:1fr}
+  .sidebar{
+    position:static;height:auto;flex-direction:row;align-items:center;gap:12px;
+    padding:12px 16px;overflow:visible;flex-wrap:wrap;
+  }
+  .brand{border:none;padding:0}
+  .brand small{display:none}
+  .side-nav{flex-direction:row;margin:0;overflow-x:auto}
+  .nav-btn{width:auto;padding:9px 13px;white-space:nowrap}
+  .nav-btn.is-active::before{display:none}
+  .sidebar-foot{display:none}
+  .dash-cols{grid-template-columns:1fr}
+  .table-scroll{max-height:none}
+}
+@media (max-width:620px){
+  .tiles{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .field.span-2{grid-column:span 1}
+  .topbar h2{font-size:20px}
+  .date-chip{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+<style>
+.auth-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:linear-gradient(135deg,#0D211B,#0E7C5B);padding:20px}.auth-card{width:min(420px,100%);background:#fff;border-radius:20px;padding:32px;box-shadow:0 24px 70px #0004;text-align:center}.auth-card h2{font-family:var(--font-display);font-size:26px;color:var(--ink);margin:12px 0 4px}.auth-card p{color:var(--muted);margin-bottom:22px}.auth-card .field{display:block;text-align:right;margin-bottom:14px}.auth-card label{display:block;font-weight:700;margin-bottom:5px}.auth-card input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#fafcf9}.auth-card .btn{width:100%;margin-top:8px}.auth-error{color:var(--danger);min-height:24px;margin-top:10px;font-size:13px}body.auth-locked .app{display:none}body:not(.auth-locked) .auth-screen{display:none}
+</style>
+</head>
+<body>
+<section class="auth-screen" id="authScreen"><form class="auth-card" id="loginForm"><div class="brand-badge" style="margin:auto">📦</div><h2>تسجيل الدخول</h2><p>أدخل بياناتك للوصول إلى نظام مخزني</p><div class="field"><label for="loginUser">اسم المستخدم</label><input id="loginUser" autocomplete="username" required></div><div class="field"><label for="loginPass">كلمة المرور</label><input id="loginPass" type="password" autocomplete="current-password" required></div><label style="display:flex;align-items:center;gap:8px;text-align:right;margin:4px 0 12px"><input id="rememberMe" type="checkbox"> تذكرني</label><button class="btn btn-primary" type="submit">دخول</button><div class="auth-error" id="authError"></div></form></section>
+
+<div class="app">
+
+  <!-- ===================== الشريط الجانبي ===================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-badge">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/><path d="M7.5 5.5l9 5"/></svg>
+      </span>
+      <div><h1>مخزني</h1><small>نظام إدارة المخازن</small></div>
+    </div>
+
+    <nav class="side-nav" id="mainNav">
+      <button class="nav-btn is-active" data-view="dashboard">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/></svg>
+        لوحة التحكم
+      </button>
+      <button class="nav-btn" data-view="products">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+        المنتجات
+      </button>
+      <button class="nav-btn" data-view="movements">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v11"/><path d="M4.5 10.5L8 14l3.5-3.5"/><path d="M16 21V10"/><path d="M12.5 13.5L16 10l3.5 3.5"/></svg>
+        الحركات والسجل
+      </button>
+      <button class="nav-btn" data-view="contacts">👥 الموردون والعملاء</button>
+      <button class="nav-btn" data-view="reports">📊 التقارير</button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <p class="side-stat" id="storageInfo">—</p>
+      <div class="side-actions">
+        <button id="btnExportJson">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          نسخة احتياطية
+        </button>
+        <button id="btnImportJson">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V3"/><path d="M8 7l4-4 4 4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          استعادة
+        </button>
+      </div>
+      <p class="side-ver">إصدار 1.0 · جاهز للتحويل إلى Electron</p>
+    </div>
+    <input type="file" id="fileImport" accept=".json,application/json" hidden>
+  </aside>
+
+  <!-- ===================== المحتوى ===================== -->
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h2 id="viewTitle">لوحة التحكم</h2>
+        <p class="subtitle" id="viewSubtitle">نظرة عامة على حالة المخزون</p>
+      </div>
+      <div class="topbar-tools">
+        <span class="date-chip" id="todayChip"></span>
+        <button class="bell" id="bellBtn" title="تنبيهات المخزون" aria-label="تنبيهات المخزون">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="bell-badge" id="bellBadge">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- عرض: لوحة التحكم -->
+    <section class="view is-active" id="view-dashboard">
+      <div id="dashAlerts"></div>
+      <div class="dash-grid" id="dashStats"></div>
+      <div class="dash-cols" id="dashLists"></div>
+    </section>
+
+    <!-- عرض: المنتجات -->
+    <section class="view" id="view-products">
+      <div class="toolbar">
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="search" id="productSearch" placeholder="ابحث بالاسم أو الكود (SKU)...">
+        </div>
+        <select class="filter" id="categoryFilter"></select>
+        <div class="search-box" title="متوافق مع قارئ باركود USB"><span>▦</span><input id="barcodeInput" inputmode="numeric" autocomplete="off" placeholder="امسح الباركود / SKU"></div>
+        <span class="count-chip" id="productCount">0 منتج</span>
+        <button class="btn btn-ghost" id="btnExportCsv" title="تصدير المنتجات CSV">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          CSV
+        </button>
+        <button class="btn btn-primary" id="btnNewProduct">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          منتج جديد
+        </button>
+      </div>
+      <div class="table-card" id="productsTableWrap">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>المنتج</th><th>التصنيف</th>
+                <th class="num">شراء</th><th class="num">بيع</th>
+                <th class="num">الكمية</th><th class="num">الحد الأدنى</th>
+                <th>الحالة</th><th style="text-align:center">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="productsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="productsEmpty" hidden></div>
+    </section>
+
+    <!-- عرض: الحركات والسجل -->
+    <section class="view" id="view-movements">
+      <div class="toolbar">
+        <button class="btn btn-primary" id="btnStockIn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          استلام مخزون
+        </button>
+        <button class="btn btn-warn" id="btnStockOut">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V3"/><path d="M8 7l4-4 4 4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          صرف مخزون
+        </button>
+        <div class="chips" id="txChips">
+          <button class="chip is-active" data-tfilter="all">الكل</button>
+          <button class="chip" data-tfilter="IN">وارد فقط</button>
+          <button class="chip" data-tfilter="OUT">صادر فقط</button>
+        </div>
+        <div class="search-box" style="flex:1;min-width:180px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="search" id="txSearch" placeholder="ابحث في السجل...">
+        </div>
+        <span class="count-chip" id="txCount">0 حركة</span>
+      </div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th><th>المنتج</th><th>النوع</th>
+                <th class="num">الكمية</th><th>السبب / ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody id="txTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+    <section class="view" id="view-contacts">
+      <div class="toolbar"><button class="btn btn-primary" id="btnNewContact">+ إضافة جهة اتصال</button><div class="chips" id="contactChips"><button class="chip is-active" data-kind="all">الكل</button><button class="chip" data-kind="supplier">الموردون</button><button class="chip" data-kind="customer">العملاء</button></div></div>
+      <div class="table-card"><div class="table-scroll"><table><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>البريد</th><th>ملاحظات</th><th>إجراء</th></tr></thead><tbody id="contactsTbody"></tbody></table></div></div>
+    </section>
+    <section class="view" id="view-reports">
+      <div class="toolbar"><button class="btn btn-primary" id="btnExportReport">تصدير التقرير CSV</button></div>
+      <div class="stats-grid" id="reportStats"></div>
+      <div class="panel" style="margin-top:18px"><div class="panel-head"><h3>أكثر المنتجات حركة</h3></div><div class="table-scroll"><table><thead><tr><th>المنتج</th><th>الوارد</th><th>الصادر</th><th>إجمالي الحركة</th></tr></thead><tbody id="reportTbody"></tbody></table></div></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===================== نافذة: نموذج المنتج ===================== -->
+<div class="modal-overlay" id="modal-product">
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h3 id="productFormTitle">منتج جديد</h3>
+      <button class="modal-close" data-close>✕</button>
+    </div>
+    <form id="productForm" novalidate>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="f-name">اسم المنتج</label>
+            <input id="f-name" autocomplete="off" placeholder="مثال: سماعات رأس لاسلكية">
+            <small class="err" id="e-name"></small>
+          </div>
+          <div class="field">
+            <label for="f-sku">كود المنتج (SKU)</label>
+            <input id="f-sku" autocomplete="off" placeholder="مثال: EL-1042">
+            <small class="err" id="e-sku"></small>
+          </div>
+          <div class="field">
+            <label for="f-category">التصنيف</label>
+            <input id="f-category" list="categoryList" autocomplete="off" placeholder="اختر أو أضف تصنيفًا">
+            <datalist id="categoryList"></datalist>
+            <small class="err" id="e-category"></small>
+          </div>
+          <div class="field">
+            <label for="f-purchase">سعر الشراء</label>
+            <input id="f-purchase" type="number" min="0" step="0.01" placeholder="0.00">
+            <small class="err" id="e-purchase"></small>
+          </div>
+          <div class="field">
+            <label for="f-sale">سعر البيع</label>
+            <input id="f-sale" type="number" min="0" step="0.01" placeholder="0.00">
+            <small class="err" id="e-sale"></small>
+          </div>
+          <div class="field" id="quantityField">
+            <label for="f-quantity">الكمية الافتتاحية</label>
+            <input id="f-quantity" type="number" min="0" step="1" placeholder="0">
+            <small class="err" id="e-quantity"></small>
+          </div>
+          <div class="field">
+            <label for="f-min">الحد الأدنى للمخزون</label>
+            <input id="f-min" type="number" min="0" step="1" placeholder="0">
+            <small class="err" id="e-min"></small>
+          </div>
+        </div>
+        <p class="hint" id="editHint" hidden>💡 تُدار الكمية الحالية عبر حركات الاستلام والصرف فقط لضمان سجل دقيق.</p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="productSubmitBtn">حفظ المنتج</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== نافذة: حركة مخزون ===================== -->
+<div class="modal-overlay" id="modal-stock">
+  <div class="modal-panel" id="stockPanel" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h3 id="stockFormTitle">استلام مخزون</h3>
+      <button class="modal-close" data-close>✕</button>
+    </div>
+    <form id="stockForm" novalidate>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="s-product">المنتج</label>
+            <select id="s-product"></select>
+            <small class="err" id="e-sproduct"></small>
+          </div>
+          <div class="field">
+            <label for="s-qty" id="stockQtyLabel">الكمية المستلمة</label>
+            <input id="s-qty" type="number" min="1" step="1" value="1">
+            <small class="err" id="e-sqty"></small>
+          </div>
+          <div class="field">
+            <label for="s-note">ملاحظات <i>(اختياري)</i></label>
+            <input id="s-note" autocomplete="off" placeholder="مثال: توريد المورد الرئيسي">
+          </div>
+        </div>
+        <p class="stock-hint" id="stockHint"></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="stockSubmitBtn">تسجيل الوارد</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== نافذة: تأكيد ===================== -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-panel mode-danger" style="width:min(430px,100%)" role="alertdialog" aria-modal="true">
+    <div class="modal-head"><h3 id="confirmTitle">تأكيد</h3><button class="modal-close" data-close>✕</button></div>
+    <div class="modal-body"><p id="confirmMessage" style="font-size:13.5px"></p></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close>إلغاء</button>
+      <button class="btn btn-danger" id="confirmBtn">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<!-- دلائل التصنيف (تُبنى ديناميكيًا) -->
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+<script src="web-data-adapter.js"></script>
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════
+   بنية الكود (جاهزة للتوسع مستقبلًا):
+   1) الإعدادات        → CONFIG
+   2) أدوات مساعدة     → Utils
+   3) ناقل الأحداث     → Bus (يفصل المنطق عن الواجهة)
+   4) طبقة التخزين     → StorageGateway  ★ استبدلها بـ RealmDB/API دون تغيير بقية الطبقات
+   5) المستودعات       → ProductRepo / TransactionRepo
+   6) منطق الأعمال     → InventoryService (كل دواله تُرجع Result: {ok, error, data})
+   7) الواجهة          → UI + Views + Router
+   ملاحظات التوسع:
+   • تسجيل الدخول: أضف AuthGuard قبل Router.navigate في init().
+   • Electron: وجّه BrowserWindow إلى هذا الملف مباشرة.
+   • الباركود: حقل SKU جاهز لاستقبال قيم الماسح + زر بحث فوري.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── 1) الإعدادات ─────────────────────────────────────────── */
+const CONFIG = {
+  storageKey : 'makhzani.v1',   // غيّر الاسم لإعادة ضبط البيانات
+  currency   : '$',
+  seedDemo   : true             // زرع بيانات تجريبية عند أول تشغيل
+};
+const Auth = { isLoggedIn: () => sessionStorage.getItem('makhzani.auth.v1') === '1' || localStorage.getItem('makhzani.remembered.v1') === '1', async login(u,p,remember=false) { try { const data=await MakhzaniWeb.login(u,p); if(remember&&data.token)localStorage.setItem('makhzani.web.token',data.token); } catch { if(!(u==='admin'&&p==='admin123')) return false; } sessionStorage.setItem('makhzani.auth.v1','1'); sessionStorage.setItem('makhzani.online','1'); if(remember) localStorage.setItem('makhzani.remembered.v1','1'); else { localStorage.removeItem('makhzani.remembered.v1'); localStorage.removeItem('makhzani.web.token'); } return true; } };
+
+/* ── 2) أدوات مساعدة ──────────────────────────────────────── */
+const Utils = {
+  $  : (sel, root = document) => root.querySelector(sel),
+  $$ : (sel, root = document) => [...root.querySelectorAll(sel)],
+
+  uid    : () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+  esc    : (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
+  round2 : (n) => Math.round((+n || 0) * 100) / 100,
+
+  fmtNum : (n) => new Intl.NumberFormat('en-US').format(n),
+  fmtMoney(n) {
+    const v = Utils.round2(n);
+    const s = Math.abs(v % 1) > 0.001
+      ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : Math.round(v).toLocaleString('en-US');
+    return s + ' ' + CONFIG.currency;
+  },
+  fmtDate : (iso) => new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(iso)),
+
+  timeAgo(iso) {
+    const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
+    if (mins < 1)  return 'الآن';
+    if (mins < 60) return `قبل ${Utils.arCount(mins, 'دقيقة', 'دقيقتين', 'دقائق', 'دقيقة')}`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)  return `قبل ${Utils.arCount(hrs, 'ساعة', 'ساعتين', 'ساعات', 'ساعة')}`;
+    return Utils.fmtDate(iso);
+  },
+  arCount(n, one, two, few, many) {
+    if (n === 1) return one;
+    if (n === 2) return two;
+    return `${n} ` + (n >= 3 && n <= 10 ? few : many);
+  },
+
+  /* صيغة قياسية للنتائج — تسهّل الربط مع Backend مستقبلًا */
+  ok   : (data = null, warning = null) => ({ ok: true,  data, warning }),
+  fail : (error)                        => ({ ok: false, error }),
+
+  download(filename, content, mime) {
+    const blob = new Blob([content], { type: mime });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+};
+
+/* أيقونات SVG مضمّنة */
+const ICON = {
+  in    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+  out   : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V3"/><path d="M8 7l4-4 4 4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+  pencil: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4L8 20H4v-4L17 3z"/></svg>',
+  trash : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>',
+  alert : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  check : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4L12 14l-3-3"/></svg>',
+  info  : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M12 12v4"/></svg>',
+  x     : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>',
+  box   : '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
+  coins : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><path d="M15.4 5.6a6 6 0 1 1-6.8 9.8"/></svg>',
+  swap  : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v11"/><path d="M4.5 10.5L8 14l3.5-3.5"/><path d="M16 21V10"/><path d="M12.5 13.5L16 10l3.5 3.5"/></svg>'
+};
+
+/* ألوان دلائل التصنيفات والمنتجات */
+const PALETTE = ['#0E7C5B', '#C9822B', '#31708E', '#7E57C2', '#C25E8A', '#5F8A2E', '#8A6D3B'];
+const hashColor = (str) => PALETTE[[...String(str)].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
+
+/* ── 3) ناقل الأحداث ──────────────────────────────────────── */
+const Bus = (() => {
+  const map = {};
+  return {
+    on  : (event, fn) => (map[event] ??= []).push(fn),
+    emit: (event, payload) => (map[event] || []).forEach(fn => fn(payload))
+  };
+})();
+
+/* ── 4) طبقة التخزين (نقطة استبدال RealmDB / API لاحقًا) ──── */
+const StorageGateway = {
+  load() {
+    try {
+      const raw = localStorage.getItem(CONFIG.storageKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  },
+  save(data) {
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
+  }
+};
+
+/* حالة التطبيق في الذاكرة */
+let state = { products: [], transactions: [] };
+const persist = () => { StorageGateway.save(state); Bus.emit('data:persisted'); if (sessionStorage.getItem('makhzani.online') === '1' && window.MakhzaniWeb) MakhzaniWeb.saveSnapshot({products:state.products,transactions:state.transactions,contacts}).catch(() => UI.toast('تعذر مزامنة التغيير مع الخادم','error')); };
+
+/* ── 5) المستودعات ────────────────────────────────────────── */
+const ProductRepo = {
+  all      : () => state.products,
+  findById : (id)  => state.products.find(p => p.id === id),
+  findBySku: (sku) => state.products.find(p => p.sku.toLowerCase() === sku.toLowerCase()),
+  insert(p) { state.products.unshift(p); },
+  update(id, patch) {
+    const p = this.findById(id);
+    if (p) Object.assign(p, patch, { updatedAt: new Date().toISOString() });
+    return p;
+  },
+  remove(id) { state.products = state.products.filter(p => p.id !== id); }
+};
+
+const TransactionRepo = {
+  all    : () => state.transactions,
+  insert : (tx) => state.transactions.unshift(tx),
+  removeByProduct(id) { state.transactions = state.transactions.filter(t => t.productId !== id); }
+};
+
+/* ── 6) منطق الأعمال ──────────────────────────────────────── */
+const InventoryService = {
+
+  validateProductFields(data, excludeId = null) {
+    if (!data.name)     return 'اسم المنتج مطلوب';
+    if (!data.sku)      return 'كود المنتج (SKU) مطلوب';
+    const dup = ProductRepo.findBySku(data.sku);
+    if (dup && dup.id !== excludeId) return 'كود SKU مستخدم لمنتج آخر';
+    if (!data.category) return 'التصنيف مطلوب';
+    if (data.purchasePrice < 0 || data.salePrice < 0) return 'الأسعار لا يمكن أن تكون سالبة';
+    return null;
+  },
+
+  createProduct(data) {
+    const error = this.validateProductFields(data);
+    if (error) return Utils.fail(error);
+
+    const now = new Date().toISOString();
+    const product = { ...data, id: Utils.uid(), createdAt: now, updatedAt: now };
+    ProductRepo.insert(product);
+
+    /* قيد الرصيد الافتتاحي في السجل */
+    if (data.quantity > 0) {
+      TransactionRepo.insert({
+        id: Utils.uid(), type: 'IN', productId: product.id, productName: product.name,
+        quantity: data.quantity, note: 'رصيد افتتاحي', date: now
+      });
+    }
+    persist();
+    return Utils.ok(product);
+  },
+
+  updateProduct(id, patch) {
+    const error = this.validateProductFields(patch, id);
+    if (error) return Utils.fail(error);
+    const updated = ProductRepo.update(id, patch);   // لا نلمس الكمية هنا
+    persist();
+    return Utils.ok(updated);
+  },
+
+  deleteProduct(id) {
+    const product = ProductRepo.findById(id);
+    if (!product) return Utils.fail('المنتج غير موجود');
+    TransactionRepo.removeByProduct(id);
+    ProductRepo.remove(id);
+    persist();
+    return Utils.ok();
+  },
+
+  registerStockIn(productId, qty, note = '') {
+    const product = ProductRepo.findById(productId);
+    if (!product)      return Utils.fail('المنتج غير موجود');
+    if (!(qty > 0))    return Utils.fail('أدخل كمية صحيحة أكبر من صفر');
+
+    ProductRepo.update(productId, { quantity: product.quantity + qty });
+    TransactionRepo.insert({
+      id: Utils.uid(), type: 'IN', productId, productName: product.name,
+      quantity: qty, note, date: new Date().toISOString()
+    });
+    persist();
+
+    const warning = product.quantity + qty <= product.minStock
+      ? `تنبيه: «${product.name}» ما زال عند أو تحت الحد الأدنى للمخزون` : null;
+    return Utils.ok(product, warning);
+  },
+
+  registerStockOut(productId, qty, note = '') {
+    const product = ProductRepo.findById(productId);
+    if (!product)    return Utils.fail('المنتج غير موجود');
+    if (!(qty > 0))  return Utils.fail('أدخل كمية صحيحة أكبر من صفر');
+    if (qty > product.quantity) return Utils.fail(`الكمية المطلوبة أكبر من المتاح (${product.quantity})`);
+
+    const remaining = product.quantity - qty;
+    ProductRepo.update(productId, { quantity: remaining });
+    TransactionRepo.insert({
+      id: Utils.uid(), type: 'OUT', productId, productName: product.name,
+      quantity: qty, note, date: new Date().toISOString()
+    });
+    persist();
+
+    let warning = null;
+    if (remaining === 0)                  warning = `نفد مخزون «${product.name}» بالكامل!`;
+    else if (remaining <= product.minStock) warning = `انخفض «${product.name}» عن الحد الأدنى (المتبقي ${remaining})`;
+    return Utils.ok(product, warning);
+  },
+
+  /* مؤشرات مشتقة للوحة التحكم */
+  getStats() {
+    const products  = ProductRepo.all();
+    const stockValue = products.reduce((s, p) => s + p.quantity * p.purchasePrice, 0);
+    const saleValue  = products.reduce((s, p) => s + p.quantity * p.salePrice, 0);
+    return {
+      productsCount : products.length,
+      totalUnits    : products.reduce((s, p) => s + p.quantity, 0),
+      stockValue,
+      saleValue,
+      profit        : saleValue - stockValue,
+      lowCount      : products.filter(p => p.quantity > 0 && p.quantity <= p.minStock).length,
+      outCount      : products.filter(p => p.quantity === 0).length
+    };
+  }
+};
+
+/* ── 7) الواجهة: مكونات عامة ───────────────────────────────── */
+const UI = {
+  toast(message, type = 'success') {
+    const icons = { success: ICON.check, warn: ICON.alert, error: ICON.x, info: ICON.info };
+    const el = document.createElement('div');
+    el.className = `toast t-${type}`;
+    el.innerHTML = `${icons[type] || icons.info}<span>${Utils.esc(message)}</span>`;
+    Utils.$('#toastStack').append(el);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 320); }, 3600);
+  },
+
+  openModal(id)  { Utils.$(id).classList.add('open'); },
+  closeModal(id) { Utils.$(id).classList.remove('open'); },
+  closeTopModal() {
+    const open = Utils.$$('.modal-overlay.open');
+    if (open.length) open[open.length - 1].classList.remove('open');
+  },
+
+  _confirmCb: null,
+  confirm({ title, message, confirmLabel = 'تأكيد', onConfirm }) {
+    Utils.$('#confirmTitle').textContent   = title;
+    Utils.$('#confirmMessage').innerHTML   = message;
+    Utils.$('#confirmBtn').textContent     = confirmLabel;
+    this._confirmCb = onConfirm;
+    this.openModal('#modal-confirm');
+  }
+};
+
+/* عدّاد متحرك للأرقام الكبيرة */
+function animateCounters(root) {
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  Utils.$$('[data-count]', root).forEach(el => {
+    const target = +el.dataset.count;
+    const render = (v) => el.textContent = el.dataset.money ? Utils.fmtMoney(v) : Utils.fmtNum(Math.round(v));
+    if (reduced) return render(target);
+    const t0 = performance.now(), dur = 750;
+    (function step(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      render(target * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step); else render(target);
+    })(t0);
+  });
+}
+
+/* ── 7ب) العروض ───────────────────────────────────────────── */
+let currentView = 'dashboard';
+let lastTouchedId = null;   // لوميض الصف بعد التعديل
+const productFilters = { q: '', cat: 'all' };
+const txFilters      = { q: '', type: 'all' };
+let stockMode = 'IN';
+let editingProductId = null;
+let contactKind = 'all';
+const contacts = JSON.parse(localStorage.getItem('makhzani.contacts.v1') || '[]');
+
+const VIEWS = {
+  dashboard : { title: 'لوحة التحكم',    sub: 'مؤشرات المخزون والتنبيهات لحظة بلحظة', render: renderDashboard },
+  products  : { title: 'المنتجات',       sub: 'إدارة الأصناف والأسعار والكميات',       render: renderProducts },
+  movements : { title: 'الحركات والسجل', sub: 'استلام وصرف المخزون وتتبع كل عملية',    render: renderMovements }
+  ,contacts : { title: 'الموردون والعملاء', sub: 'إدارة بيانات الموردين والعملاء', render: renderContacts }
+  ,reports : { title: 'التقارير', sub: 'ملخص أداء المخزون والحركات', render: renderReports }
+};
+
+function renderContacts() { const rows = contacts.filter(c => contactKind === 'all' || c.kind === contactKind).map(c => `<tr><td><b>${Utils.esc(c.name)}</b></td><td>${c.kind === 'supplier' ? 'مورد' : 'عميل'}</td><td>${Utils.esc(c.phone || '—')}</td><td>${Utils.esc(c.email || '—')}</td><td>${Utils.esc(c.note || '—')}</td><td><button class="btn btn-danger btn-sm" data-delete-contact="${c.id}">حذف</button></td></tr>`).join(''); Utils.$('#contactsTbody').innerHTML = rows || '<tr><td colspan="6" class="empty-state">لا توجد بيانات بعد</td></tr>'; }
+function renderReports() { const ps=ProductRepo.all(), tx=TransactionRepo.all(); const inQty=tx.filter(t=>t.type==='IN').reduce((s,t)=>s+t.quantity,0), outQty=tx.filter(t=>t.type==='OUT').reduce((s,t)=>s+t.quantity,0), value=ps.reduce((s,p)=>s+p.quantity*p.purchasePrice,0), profit=ps.reduce((s,p)=>s+p.quantity*(p.salePrice-p.purchasePrice),0); Utils.$('#reportStats').innerHTML=`<div class="panel"><p>عدد المنتجات</p><h2>${ps.length}</h2></div><div class="panel"><p>قيمة المخزون</p><h2>${Utils.fmtMoney(value)}</h2></div><div class="panel"><p>إجمالي الوارد</p><h2>${Utils.fmtNum(inQty)}</h2></div><div class="panel"><p>إجمالي الصادر</p><h2>${Utils.fmtNum(outQty)}</h2></div><div class="panel"><p>الربح التقديري</p><h2>${Utils.fmtMoney(profit)}</h2></div>`; const map={}; tx.forEach(t=>{map[t.productName]??={in:0,out:0};map[t.productName][t.type==='IN'?'in':'out']+=t.quantity}); Utils.$('#reportTbody').innerHTML=Object.entries(map).sort((a,b)=>(b[1].in+b[1].out)-(a[1].in+a[1].out)).map(([n,v])=>`<tr><td>${Utils.esc(n)}</td><td>${v.in}</td><td>${v.out}</td><td>${v.in+v.out}</td></tr>`).join('')||'<tr><td colspan="4">لا توجد حركات</td></tr>'; }
+
+function navigate(viewName) {
+  currentView = viewName;
+  const view = VIEWS[viewName];
+  Utils.$('#viewTitle').textContent    = view.title;
+  Utils.$('#viewSubtitle').textContent = view.sub;
+  Utils.$$('.view').forEach(s => s.classList.toggle('is-active', s.id === `view-${viewName}`));
+  Utils.$$('.nav-btn').forEach(b => b.classList.toggle('is-active', b.dataset.view === viewName));
+  view.render();
+}
+const renderCurrentView = () => VIEWS[currentView].render();
+
+/* ── لوحة التحكم ── */
+function renderDashboard() {
+  const stats = InventoryService.getStats();
+  const products = ProductRepo.all();
+
+  /* شريط التنبيهات */
+  const outProducts = products.filter(p => p.quantity === 0);
+  const lowProducts = products.filter(p => p.quantity > 0 && p.quantity <= p.minStock);
+  const alertBox = Utils.$('#dashAlerts');
+
+  if (outProducts.length || lowProducts.length) {
+    const hasOut = outProducts.length > 0;
+    const items = [...outProducts, ...lowProducts].map(p => {
+      const isOut = p.quantity === 0;
+      return `<span class="as-item">
+        <strong>${Utils.esc(p.name)}</strong>
+        <span class="tag ${isOut ? 'tag-out' : 'tag-low'}">${isOut ? 'نفد' : p.quantity + ' / ' + p.minStock}</span>
+        <button data-open-stock="IN" data-id="${p.id}">استلام</button>
+      </span>`;
+    }).join('');
+    alertBox.innerHTML = `
+      <div class="alert-strip ${hasOut ? 'is-danger' : 'is-warn'}">
+        <span class="as-title">${ICON.alert} تنبيهات المخزون (${outProducts.length + lowProducts.length})</span>
+        <div class="as-items">${items}</div>
+      </div>`;
+  } else {
+    alertBox.innerHTML = `
+      <div class="alert-strip is-ok">
+        <span class="as-title">${ICON.check}</span>
+        <span class="as-ok-msg">ممتاز! جميع الأصناف فوق الحد الأدنى للمخزون.</span>
+      </div>`;
+  }
+
+  /* المؤشرات */
+  const margin = stats.saleValue > 0 ? Math.round((stats.profit / stats.stockValue) * 100) || 0 : 0;
+  const needSupply = stats.lowCount + stats.outCount;
+
+  /* توزيع القيمة حسب التصنيف */
+  const byCategory = {};
+  products.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + p.quantity * p.purchasePrice; });
+  const catEntries = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).filter(([, v]) => v > 0);
+  const catTotal = catEntries.reduce((s, [, v]) => s + v, 0) || 1;
+  const segs   = catEntries.map(([c, v]) =>
+    `<span class="cat-seg" style="width:${(v / catTotal * 100).toFixed(1)}%;background:${hashColor(c)}"></span>`).join('');
+  const legend = catEntries.map(([c, v]) =>
+    `<span class="lg"><i style="background:${hashColor(c)}"></i>${Utils.esc(c)} <b>${Math.round(v / catTotal * 100)}٪</b></span>`).join('');
+
+  Utils.$('#dashStats').innerHTML = `
+    <div class="panel value-panel">
+      <p class="vp-label">${ICON.coins} إجمالي قيمة المخزون (بسعر التكلفة)</p>
+      <p class="vp-big" data-count="${stats.stockValue}" data-money="1">0</p>
+      <div class="vp-subs">
+        <div class="vp-sub"><span>القيمة البيعية المتوقعة</span><b>${Utils.fmtMoney(stats.saleValue)}</b></div>
+        <div class="vp-sub"><span>الربح المتوقع</span><b class="pos">${Utils.fmtMoney(stats.profit)}</b></div>
+        <div class="vp-sub"><span>هامش الربح</span><b class="pos">${margin}٪</b></div>
+      </div>
+      ${segs ? `<div class="cat-bar">${segs}</div><div class="cat-legend">${legend}</div>`
+             : `<p class="hint">أضف منتجات لعرض توزيع القيمة حسب التصنيف.</p>`}
+    </div>
+    <div class="tiles">
+      <div class="tile"><span class="t-icon ti-brand">${ICON.swap.replace('16','19')}</span>
+        <div><b data-count="${stats.productsCount}">0</b><span>عدد الأصناف</span></div></div>
+      <div class="tile"><span class="t-icon ti-info">${ICON.in}</span>
+        <div><b data-count="${stats.totalUnits}">0</b><span>إجمالي القطع في المخزون</span></div></div>
+      <div class="tile"><span class="t-icon ${needSupply ? 'ti-danger' : 'ti-warn'}">${ICON.alert}</span>
+        <div><b data-count="${needSupply}">0</b><span>أصناف تحتاج تزويدًا</span></div></div>
+    </div>`;
+
+  /* القوائم: آخر الحركات + الأعلى قيمة */
+  const recent = TransactionRepo.all().slice(0, 6);
+  const recentHtml = recent.length ? recent.map(t => `
+    <div class="mov-item">
+      <span class="m-icon ${t.type === 'IN' ? 'm-in' : 'm-out'}">${t.type === 'IN' ? ICON.in : ICON.out}</span>
+      <div class="m-info"><strong>${Utils.esc(t.productName)}</strong>
+        <small>${Utils.timeAgo(t.date)} · ${Utils.esc(t.note || (t.type === 'IN' ? 'استلام' : 'صرف'))}</small></div>
+      <span class="m-qty ${t.type === 'IN' ? 'in' : 'out'}">${t.type === 'IN' ? '+' : '−'}${Utils.fmtNum(t.quantity)}</span>
+    </div>`).join('')
+    : `<div class="empty" style="padding:28px"><p style="margin:0">لا توجد حركات بعد.</p></div>`;
+
+  const top = [...products].map(p => ({ ...p, value: p.quantity * p.purchasePrice }))
+    .sort((a, b) => b.value - a.value).slice(0, 5);
+  const maxVal = top[0]?.value || 1;
+  const topHtml = top.length ? top.map(p => `
+    <div class="top-item">
+      <div class="t-row"><span>${Utils.esc(p.name)}</span><b>${Utils.fmtMoney(p.value)}</b></div>
+      <div class="t-bar"><span style="width:${(p.value / maxVal * 100).toFixed(0)}%"></span></div>
+    </div>`).join('')
+    : `<div class="empty" style="padding:28px"><p style="margin:0">لا توجد منتجات بعد.</p></div>`;
+
+  Utils.$('#dashLists').innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h3>${ICON.swap} أحدث الحركات</h3>
+        <button class="link-btn" data-goto="movements">عرض السجل كاملًا ←</button></div>
+      <div class="panel-body">${recentHtml}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>${ICON.coins} الأعلى قيمة في المخزون</h3></div>
+      <div class="panel-body">${topHtml}</div>
+    </div>`;
+
+  animateCounters(Utils.$('#view-dashboard'));
+}
+
+/* ── المنتجات ── */
+function productStatus(p) {
+  if (p.quantity === 0)            return '<span class="badge b-out"><span class="dot"></span>نفد</span>';
+  if (p.quantity <= p.minStock)    return '<span class="badge b-low"><span class="dot"></span>منخفض</span>';
+  return '<span class="badge b-ok"><span class="dot"></span>متوفر</span>';
+}
+
+function renderProducts() {
+  renderCategoryOptions();
+  renderProductsTable();
+}
+
+function renderProductsTable() {
+  const { q, cat } = productFilters;
+  const list = ProductRepo.all().filter(p =>
+    (cat === 'all' || p.category === cat) &&
+    (!q || p.name.includes(q) || p.sku.toLowerCase().includes(q.toLowerCase()))
+  );
+
+  const wrap  = Utils.$('#productsTableWrap');
+  const empty = Utils.$('#productsEmpty');
+  Utils.$('#productCount').textContent = Utils.arCount(list.length, 'منتج واحد', 'منتجان', 'منتجات', 'منتجًا');
+
+  if (!ProductRepo.all().length) {
+    wrap.hidden = false; empty.hidden = false;
+    Utils.$('#productsTbody').innerHTML = '';
+    empty.innerHTML = `<div class="panel"><div class="empty">${ICON.box}
+      <h4>المخزون فارغ</h4><p>ابدأ بإضافة أول منتج لتظهر المؤشرات والتقارير هنا.</p>
+      <button class="btn btn-primary" id="emptyAddBtn">+ أضف منتجًا</button></div></div>`;
+    Utils.$('#emptyAddBtn').onclick = () => openProductModal();
+    return;
+  }
+  empty.hidden = true; wrap.hidden = false;
+
+  Utils.$('#productsTbody').innerHTML = list.length ? list.map(p => `
+    <tr data-id="${p.id}" class="${p.id === lastTouchedId ? 'row-flash' : ''}">
+      <td><div class="p-cell">
+        <span class="p-thumb" style="background:${hashColor(p.category)}">${Utils.esc(p.name[0])}</span>
+        <span class="p-name"><strong>${Utils.esc(p.name)}</strong><small>${Utils.esc(p.sku)}</small></span>
+      </div></td>
+      <td><span class="cat-chip">${Utils.esc(p.category)}</span></td>
+      <td class="num">${Utils.fmtMoney(p.purchasePrice)}</td>
+      <td class="num">${Utils.fmtMoney(p.salePrice)}</td>
+      <td class="num"><div class="qty-cell">
+        <button class="qty-btn plus" data-act="in"  data-id="${p.id}" title="استلام" aria-label="استلام">+</button>
+        <b>${Utils.fmtNum(p.quantity)}</b>
+        <button class="qty-btn minus" data-act="out" data-id="${p.id}" title="صرف" aria-label="صرف">−</button>
+      </div></td>
+      <td class="num">${Utils.fmtNum(p.minStock)}</td>
+      <td>${productStatus(p)}</td>
+      <td><div class="actions">
+        <button class="act a-edit" data-act="edit"   data-id="${p.id}" title="تعديل">${ICON.pencil}</button>
+        <button class="act a-del"  data-act="delete" data-id="${p.id}" title="حذف">${ICON.trash}</button>
+      </div></td>
+    </tr>`).join('')
+    : `<tr><td colspan="8"><div class="empty" style="padding:34px"><h4>لا توجد نتائج</h4><p>جرّب تعديل كلمة البحث أو التصنيف.</p></div></td></tr>`;
+
+  lastTouchedId = null;
+}
+
+function renderCategoryOptions() {
+  const categories = [...new Set(ProductRepo.all().map(p => p.category).filter(Boolean))];
+  const current = productFilters.cat;
+  Utils.$('#categoryFilter').innerHTML =
+    `<option value="all">كل التصنيفات</option>` +
+    categories.map(c => `<option value="${Utils.esc(c)}">${Utils.esc(c)}</option>`).join('');
+  Utils.$('#categoryFilter').value = categories.includes(current) ? current : 'all';
+  productFilters.cat = Utils.$('#categoryFilter').value;
+
+  Utils.$('#categoryList').innerHTML = categories.map(c => `<option value="${Utils.esc(c)}">`).join('');
+}
+
+/* ── الحركات والسجل ── */
+function renderMovements() {
+  const { q, type } = txFilters;
+  const list = TransactionRepo.all().filter(t =>
+    (type === 'all' || t.type === type) &&
+    (!q || t.productName.includes(q) || (t.note || '').includes(q))
+  );
+  Utils.$('#txCount').textContent = Utils.arCount(list.length, 'حركة واحدة', 'حركتان', 'حركات', 'حركة');
+
+  Utils.$('#txTbody').innerHTML = list.length ? list.map(t => `
+    <tr>
+      <td style="white-space:nowrap"><b style="font-size:12.5px">${Utils.fmtDate(t.date)}</b><br>
+        <small style="color:var(--muted);font-size:10.5px">${Utils.timeAgo(t.date)}</small></td>
+      <td><strong>${Utils.esc(t.productName)}</strong></td>
+      <td>${t.type === 'IN'
+        ? '<span class="badge b-in">وارد</span>'
+        : '<span class="badge b-out-t">صادر</span>'}</td>
+      <td class="num"><b style="font-family:var(--font-display);font-size:15px;color:${t.type === 'IN' ? 'var(--brand)' : 'var(--danger)'}">
+        ${t.type === 'IN' ? '+' : '−'}${Utils.fmtNum(t.quantity)}</b></td>
+      <td style="color:var(--muted);font-size:12.5px">${Utils.esc(t.note || '—')}</td>
+    </tr>`).join('')
+    : `<tr><td colspan="5"><div class="empty" style="padding:40px">${ICON.swap}
+        <h4>السجل فارغ</h4><p>سجّل أول عملية استلام أو صرف لتظهر هنا.</p></div></td></tr>`;
+}
+
+/* ── 7ج) النوافذ والنماذج ─────────────────────────────────── */
+function openProductModal(product = null) {
+  editingProductId = product?.id ?? null;
+  const isEdit = !!product;
+  Utils.$('#productFormTitle').textContent = isEdit ? 'تعديل المنتج' : 'منتج جديد';
+  Utils.$('#productSubmitBtn').textContent = isEdit ? 'حفظ التعديلات' : 'إضافة المنتج';
+  Utils.$('#quantityField').style.display  = isEdit ? 'none' : '';
+  Utils.$('#editHint').hidden = !isEdit;
+
+  Utils.$('#f-name').value     = product?.name ?? '';
+  Utils.$('#f-sku').value      = product?.sku ?? '';
+  Utils.$('#f-category').value = product?.category ?? '';
+  Utils.$('#f-purchase').value = product?.purchasePrice ?? '';
+  Utils.$('#f-sale').value     = product?.salePrice ?? '';
+  Utils.$('#f-quantity').value = '';
+  Utils.$('#f-min').value      = product?.minStock ?? '';
+  clearFormErrors('productForm');
+  renderCategoryOptions();
+  UI.openModal('#modal-product');
+  setTimeout(() => Utils.$('#f-name').focus(), 80);
+}
+
+function openStockModal(type = 'IN', presetProductId = null) {
+  if (!ProductRepo.all().length) {
+    UI.toast('أضف منتجًا أولًا قبل تسجيل الحركات', 'info');
+    return navigate('products');
+  }
+  stockMode = type;
+  const isIn = type === 'IN';
+  Utils.$('#stockPanel').classList.toggle('mode-out', !isIn);
+  Utils.$('#stockFormTitle').textContent = isIn ? 'استلام مخزون (وارد)' : 'صرف مخزون (صادر)';
+  Utils.$('#stockQtyLabel').textContent  = isIn ? 'الكمية المستلمة' : 'الكمية المصروفة';
+  const submitBtn = Utils.$('#stockSubmitBtn');
+  submitBtn.textContent = isIn ? 'تسجيل الوارد' : 'تسجيل الصرف';
+  submitBtn.className   = 'btn ' + (isIn ? 'btn-primary' : 'btn-warn');
+
+  /* قائمة المنتجات مجمّعة حسب التصنيف */
+  const grouped = {};
+  ProductRepo.all().forEach(p => (grouped[p.category] ??= []).push(p));
+  Utils.$('#s-product').innerHTML = Object.entries(grouped).map(([cat, items]) =>
+    `<optgroup label="${Utils.esc(cat)}">${items.map(p =>
+      `<option value="${p.id}">${Utils.esc(p.name)} — ${Utils.esc(p.sku)} (متوفر: ${p.quantity})</option>`).join('')
+    }</optgroup>`).join('');
+
+  if (presetProductId) Utils.$('#s-product').value = presetProductId;
+  Utils.$('#s-qty').value = 1;
+  Utils.$('#s-note').value = '';
+  clearFormErrors('stockForm');
+  updateStockHint();
+  UI.openModal('#modal-stock');
+}
+
+function updateStockHint() {
+  const product = ProductRepo.findById(Utils.$('#s-product').value);
+  Utils.$('#stockHint').innerHTML = product
+    ? `${ICON.info} المتوفر حاليًا: <b>${Utils.fmtNum(product.quantity)}</b> &nbsp;·&nbsp; الحد الأدنى: <b>${Utils.fmtNum(product.minStock)}</b> &nbsp;·&nbsp; ${productStatus(product)}`
+    : '';
+}
+
+function clearFormErrors(formId) {
+  Utils.$$(`#${formId} .field.invalid`).forEach(f => f.classList.remove('invalid'));
+  Utils.$$(`#${formId} .err`).forEach(e => e.textContent = '');
+}
+function setFieldError(fieldId, errId, message) {
+  Utils.$('#' + errId).textContent = message;
+  Utils.$('#' + fieldId).closest('.field').classList.add('invalid');
+}
+
+/* ── 7د) النسخ الاحتياطي والتصدير ────────────────────────── */
+function exportBackupJson() {
+  const payload = { app: 'makhzani', version: 1, exportedAt: new Date().toISOString(), ...state };
+  Utils.download(`makhzani-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2), 'application/json');
+  UI.toast('تم تنزيل النسخة الاحتياطية بنجاح');
+}
+
+function importBackupJson(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data.products) || !Array.isArray(data.transactions)) throw new Error();
+      UI.confirm({
+        title: 'استعادة نسخة احتياطية',
+        message: `سيتم استبدال البيانات الحالية بـ <b>${data.products.length}</b> منتج و<b>${data.transactions.length}</b> حركة. هل أنت متأكد؟`,
+        confirmLabel: 'استعادة',
+        onConfirm() {
+          state = { products: data.products, transactions: data.transactions };
+          persist(); navigate(currentView); refreshChrome();
+          UI.toast('تمت الاستعادة بنجاح');
+        }
+      });
+    } catch { UI.toast('ملف غير صالح — تأكد أنه نسخة احتياطية من مخزني', 'error'); }
+  };
+  reader.readAsText(file);
+}
+
+function exportProductsCsv() {
+  const header = ['اسم المنتج','SKU','التصنيف','سعر الشراء','سعر البيع','الكمية','الحد الأدنى','قيمة المخزون'];
+  const escCsv = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const rows = ProductRepo.all().map(p =>
+    [p.name, p.sku, p.category, p.purchasePrice, p.salePrice, p.quantity, p.minStock, Utils.round2(p.quantity * p.purchasePrice)]
+      .map(escCsv).join(','));
+  Utils.download('products.csv', '\uFEFF' + [header.map(escCsv).join(','), ...rows].join('\n'), 'text/csv;charset=utf-8');
+  UI.toast('تم تصدير ملف CSV');
+}
+
+/* ── 7هـ) التحديثات العامة (الجرس + معلومات التخزين) ───────── */
+function refreshChrome() {
+  const stats = InventoryService.getStats();
+  const alerts = stats.lowCount + stats.outCount;
+  const badge = Utils.$('#bellBadge');
+  badge.textContent = alerts;
+  badge.classList.toggle('show', alerts > 0);
+
+  Utils.$('#storageInfo').innerHTML =
+    `<b>${Utils.fmtNum(stats.productsCount)}</b> منتج · <b>${Utils.fmtNum(TransactionRepo.all().length)}</b> حركة<br>آخر حفظ: ${Utils.fmtDate(new Date().toISOString())}`;
+}
+
+/* ── 8) ربط الأحداث ────────────────────────────────────────── */
+function bindEvents() {
+  /* التنقل */
+  Utils.$('#mainNav').addEventListener('click', e => {
+    const btn = e.target.closest('[data-view]');
+    if (btn) navigate(btn.dataset.view);
+  });
+  Utils.$('#bellBtn').addEventListener('click', () => navigate('dashboard'));
+  Utils.$('#btnExportReport').addEventListener('click', () => { const lines=['المنتج,الوارد,الصادر']; const m={}; TransactionRepo.all().forEach(t=>{m[t.productName]??={in:0,out:0};m[t.productName][t.type==='IN'?'in':'out']+=t.quantity}); Object.entries(m).forEach(([n,v])=>lines.push(`"${n.replaceAll('"','""')}",${v.in},${v.out}`)); Utils.download('makhzani-report.csv','\ufeff'+lines.join('\n'),'text/csv;charset=utf-8'); UI.toast('تم تصدير التقرير'); });
+  Utils.$('#btnNewContact').addEventListener('click', () => { const name=prompt('اسم المورد أو العميل:'); if(!name||!name.trim()) return; const kind=(prompt('اكتب supplier للمورد أو customer للعميل:','supplier')||'supplier').toLowerCase()==='customer'?'customer':'supplier'; const phone=prompt('رقم الهاتف (اختياري):','')||''; contacts.unshift({id:Utils.uid(),name:name.trim(),kind,phone,email:'',note:''}); localStorage.setItem('makhzani.contacts.v1',JSON.stringify(contacts)); renderContacts(); UI.toast('تمت إضافة جهة الاتصال'); });
+  Utils.$('#contactChips').addEventListener('click', e => { const b=e.target.closest('[data-kind]'); if(!b)return; contactKind=b.dataset.kind; Utils.$$('#contactChips .chip').forEach(x=>x.classList.toggle('is-active',x===b)); renderContacts(); });
+
+  /* تفويض عام للأزرار الديناميكية */
+  document.addEventListener('click', e => {
+    const dc=e.target.closest('[data-delete-contact]'); if(dc){ const i=contacts.findIndex(c=>c.id===dc.dataset.deleteContact); if(i>=0){contacts.splice(i,1);localStorage.setItem('makhzani.contacts.v1',JSON.stringify(contacts));renderContacts();UI.toast('تم حذف جهة الاتصال');} return; }
+    const stockBtn = e.target.closest('[data-open-stock]');
+    if (stockBtn) return openStockModal(stockBtn.dataset.openStock, stockBtn.dataset.id);
+    const gotoBtn = e.target.closest('[data-goto]');
+    if (gotoBtn) return navigate(gotoBtn.dataset.goto);
+  });
+
+  /* المنتجات: أدوات البحث والفلترة */
+  Utils.$('#productSearch').addEventListener('input', e => { productFilters.q = e.target.value.trim(); renderProductsTable(); });
+  Utils.$('#barcodeInput').addEventListener('keydown', e => { if(e.key !== 'Enter') return; e.preventDefault(); const code=e.target.value.trim(); const p=ProductRepo.findBySku(code); if(!p){ UI.toast('لم يتم العثور على منتج بهذا الباركود','error'); return; } Utils.$('#productSearch').value=p.sku; productFilters.q=p.sku; renderProductsTable(); e.target.select(); UI.toast(`تم العثور على: ${p.name}`); });
+  Utils.$('#categoryFilter').addEventListener('change', e => { productFilters.cat = e.target.value; renderProductsTable(); });
+  Utils.$('#btnNewProduct').addEventListener('click', () => openProductModal());
+  Utils.$('#btnExportCsv').addEventListener('click', exportProductsCsv);
+
+  /* جدول المنتجات: إجراءات الصف */
+  Utils.$('#productsTbody').addEventListener('click', e => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const product = ProductRepo.findById(btn.dataset.id);
+    if (!product) return;
+    switch (btn.dataset.act) {
+      case 'edit'  : openProductModal(product); break;
+      case 'in'    : openStockModal('IN',  product.id); break;
+      case 'out'   : openStockModal('OUT', product.id); break;
+      case 'delete':
+        UI.confirm({
+          title: 'حذف المنتج',
+          message: `سيتم حذف <b>«${Utils.esc(product.name)}»</b> نهائيًا مع جميع حركاته المسجلة. لا يمكن التراجع عن هذا الإجراء.`,
+          confirmLabel: 'حذف نهائي',
+          onConfirm() {
+            const result = InventoryService.deleteProduct(product.id);
+            result.ok ? UI.toast(`تم حذف «${product.name}»`) : UI.toast(result.error, 'error');
+            renderProducts(); refreshChrome();
+          }
+        });
+    }
+  });
+
+  /* الحركات */
+  Utils.$('#btnStockIn').addEventListener('click',  () => openStockModal('IN'));
+  Utils.$('#btnStockOut').addEventListener('click', () => openStockModal('OUT'));
+  Utils.$('#txChips').addEventListener('click', e => {
+    const chip = e.target.closest('[data-tfilter]');
+    if (!chip) return;
+    txFilters.type = chip.dataset.tfilter;
+    Utils.$$('#txChips .chip').forEach(c => c.classList.toggle('is-active', c === chip));
+    renderMovements();
+  });
+  Utils.$('#txSearch').addEventListener('input', e => { txFilters.q = e.target.value.trim(); renderMovements(); });
+
+  /* نموذج المنتج */
+  Utils.$('#productForm').addEventListener('submit', e => {
+    e.preventDefault();
+    clearFormErrors('productForm');
+    const data = {
+      name         : Utils.$('#f-name').value.trim(),
+      sku          : Utils.$('#f-sku').value.trim().toUpperCase(),
+      category     : Utils.$('#f-category').value.trim(),
+      purchasePrice: Number(Utils.$('#f-purchase').value) || 0,
+      salePrice    : Number(Utils.$('#f-sale').value) || 0,
+      quantity     : Math.max(0, parseInt(Utils.$('#f-quantity').value, 10) || 0),
+      minStock     : Math.max(0, parseInt(Utils.$('#f-min').value, 10) || 0)
+    };
+    const error = InventoryService.validateProductFields(data, editingProductId);
+    if (error) { UI.toast(error, 'error'); return; }
+    if (data.purchasePrice < 0 || data.salePrice < 0) return UI.toast('الأسعار لا يمكن أن تكون سالبة', 'error');
+
+    let result;
+    if (editingProductId) {
+      result = InventoryService.updateProduct(editingProductId, data);
+    } else {
+      result = InventoryService.createProduct(data);
+    }
+    if (!result.ok) return UI.toast(result.error, 'error');
+
+    lastTouchedId = result.data.id;
+    UI.closeModal('#modal-product');
+    UI.toast(editingProductId ? `تم تحديث «${data.name}» بنجاح` : `تمت إضافة «${data.name}» بنجاح`);
+    editingProductId = null;
+    navigate('products'); refreshChrome();
+  });
+
+  /* نموذج الحركة */
+  Utils.$('#s-product').addEventListener('change', updateStockHint);
+  Utils.$('#stockForm').addEventListener('submit', e => {
+    e.preventDefault();
+    clearFormErrors('stockForm');
+    const productId = Utils.$('#s-product').value;
+    const qty = parseInt(Utils.$('#s-qty').value, 10);
+    const note = Utils.$('#s-note').value.trim();
+
+    if (!productId) { setFieldError('s-product', 'e-sproduct', 'اختر منتجًا'); return; }
+    if (!Number.isInteger(qty) || qty <= 0) { setFieldError('s-qty', 'e-sqty', 'أدخل كمية صحيحة أكبر من صفر'); return; }
+
+    const result = stockMode === 'IN'
+      ? InventoryService.registerStockIn(productId, qty, note)
+      : InventoryService.registerStockOut(productId, qty, note);
+
+    if (!result.ok) { setFieldError('s-qty', 'e-sqty', result.error); UI.toast(result.error, 'error'); return; }
+
+    UI.closeModal('#modal-stock');
+    UI.toast(stockMode === 'IN' ? `تم استلام ${Utils.fmtNum(qty)} بنجاح ✔` : `تم صرف ${Utils.fmtNum(qty)} بنجاح`, 'success');
+    if (result.warning) UI.toast(result.warning, 'warn');
+    renderCurrentView(); refreshChrome();
+  });
+
+  /* نافذة التأكيد */
+  Utils.$('#confirmBtn').addEventListener('click', () => {
+    UI.closeModal('#modal-confirm');
+    if (typeof UI._confirmCb === 'function') { UI._confirmCb(); UI._confirmCb = null; }
+  });
+
+  /* النسخ الاحتياطي */
+  Utils.$('#btnExportJson').addEventListener('click', exportBackupJson);
+  Utils.$('#btnImportJson').addEventListener('click', () => Utils.$('#fileImport').click());
+  Utils.$('#fileImport').addEventListener('change', e => {
+    if (e.target.files[0]) importBackupJson(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  /* إغلاق النوافذ: زر / طبقة خارجية / Esc */
+  document.addEventListener('click', e => {
+    if (e.target.closest('[data-close]')) UI.closeTopModal();
+    else if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('open');
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') UI.closeTopModal(); });
+
+  Bus.on('data:persisted', refreshChrome);
+}
+
+/* ── بيانات تجريبية للعرض الأول ────────────────────────────── */
+function seedData() {
+  const now = Date.now();
+  const day = 86400000;
+  const mk = (name, sku, category, purchase, sale, qty, min, ageDays) => ({
+    id: Utils.uid(), name, sku, category,
+    purchasePrice: purchase, salePrice: sale, quantity: qty, minStock: min,
+    createdAt: new Date(now - ageDays * day).toISOString(),
+    updatedAt: new Date(now - ageDays * day).toISOString()
+  });
+
+  const products = [
+    mk('لابتوب Dell Latitude 5440',  'EL-1001', 'إلكترونيات',       850, 1050,  8,  3, 40),
+    mk('ماوس لاسلكي Logitech',       'EL-1002', 'إلكترونيات',       12,  22,    34, 10, 38),
+    mk('كيبورد ميكانيكي RGB',        'EL-1003', 'إلكترونيات',       45,  75,    16, 6,  35),
+    mk('سماعات رأس لاسلكية',          'EL-1004', 'إلكترونيات',       38,  65,    3,  8,  30),
+    mk('حبر طابعة HP 305',           'EL-1005', 'إلكترونيات',       18,  30,    2,  10, 25),
+    mk('ورق تصوير A4 (رزمة)',        'OF-2001', 'مستلزمات مكتبية',  4.5, 7,     15, 20, 22),
+    mk('أقلام حبر أزرق (علبة)',      'OF-2002', 'مستلزمات مكتبية',  3,   5.5,   60, 15, 20),
+    mk('دفاتر ملاحظات A5',           'OF-2003', 'مستلزمات مكتبية',  2,   4,     44, 12, 18),
+    mk('مكنسة كهربائية 2000W',       'HM-3001', 'أجهزة منزلية',     95,  149,   5,  2,  15),
+    mk('مكواة بخار',                 'HM-3002', 'أجهزة منزلية',     28,  45,    0,  4,  12),
+    mk('صابون سائل 5 لتر',           'CL-4001', 'أدوات تنظيف',      6,   10,    25, 8,  10),
+    mk('معقم أسطح 2 لتر',            'CL-4002', 'أدوات تنظيف',      4,   7.5,   30, 10, 8)
+  ];
+
+  const tx = (i, type, quantity, note, daysAgo) => ({
+    id: Utils.uid(), type, productId: products[i].id, productName: products[i].name,
+    quantity, note, date: new Date(now - daysAgo * day).toISOString()
+  });
+  const transactions = [
+    tx(1,  'IN',  20, 'توريد شركة التقنية الحديثة', 6),
+    tx(5,  'OUT', 5,  'طلب إدارة الحسابات',        4),
+    tx(8,  'IN',  5,  'شحنة جديدة',                 3),
+    tx(3,  'OUT', 4,  'بيع نقدي',                  2),
+    tx(10, 'IN',  15, 'توريد مصنع التنظيف',         1),
+    tx(4,  'OUT', 6,  'صيانة الطابعات',            0.2)
+  ];
+
+  return { products, transactions };
+}
+
+/* ── 9) الإقلاع ───────────────────────────────────────────── */
+function init() {
+  if (!Auth.isLoggedIn()) document.body.classList.add('auth-locked');
+  Utils.$('#loginForm').addEventListener('submit', async e => { e.preventDefault(); if (await Auth.login(Utils.$('#loginUser').value.trim(), Utils.$('#loginPass').value, Utils.$('#rememberMe').checked)) { document.body.classList.remove('auth-locked'); startApp(); } else Utils.$('#authError').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة'; });
+  if (!Auth.isLoggedIn()) return;
+  startApp();
+}
+function startApp() {
+  state = StorageGateway.load();
+  if (!state) {
+    state = CONFIG.seedDemo ? seedData() : { products: [], transactions: [] };
+    StorageGateway.save(state);
+  }
+
+  Utils.$('#todayChip').textContent =
+    new Intl.DateTimeFormat('ar', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+
+  bindEvents();
+  refreshChrome();
+  navigate('dashboard');
+  if (sessionStorage.getItem('makhzani.online') === '1') { const applyRemote = remote => { state = {products:remote.products, transactions:remote.transactions}; localStorage.setItem(CONFIG.storageKey, JSON.stringify(state)); contacts.splice(0, contacts.length, ...(remote.contacts || [])); localStorage.setItem('makhzani.contacts.v1', JSON.stringify(contacts)); renderCurrentView(); refreshChrome(); }; MakhzaniWeb.snapshot().then(applyRemote).catch(() => {}); MakhzaniWeb.connectRealtime(event => { if (event && (event.type === 'inventory.changed' || event.type === 'product.created' || event.type === 'snapshot.changed')) MakhzaniWeb.snapshot().then(applyRemote).catch(() => {}); }); }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
