@@ -5,3 +5,7 @@ backups/
 *.dump
 cloudflared.exe
 cloudflared*.log
+
+**/.env.*
+!.env.example
+!server/.env.example
