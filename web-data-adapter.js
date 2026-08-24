@@ -12,6 +12,7 @@
     contacts: { all:()=>request('/contacts'), create:c=>request('/contacts',{method:'POST',body:JSON.stringify(c)}) },
     snapshot: ()=>request('/snapshot'),
     saveSnapshot: snapshot=>request('/snapshot',{method:'PUT',body:JSON.stringify(snapshot)}),
-    connectRealtime(onChange){ const script=document.createElement('script'); script.src=(config.baseUrl.replace(/\/api$/,'')||location.origin)+'/socket.io/socket.io.js'; script.onload=()=>{ const socket=window.io(config.baseUrl.replace(/\/api$/,''),{auth:{token:token()}}); socket.on('data.changed',onChange); }; document.head.appendChild(script); }
+    connectRealtime(onChange){ let active=true; const poll=async()=>{ try { await this.snapshot(); onChange({type:'snapshot.changed'}); } catch {} if(active) window.setTimeout(poll,5000); }; poll(); return ()=>{active=false}; }
   };
 })();
+
