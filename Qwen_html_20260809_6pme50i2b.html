@@ -715,7 +715,7 @@ const CONFIG = {
   currency   : '$',
   seedDemo   : true             // زرع بيانات تجريبية عند أول تشغيل
 };
-const Auth = { isLoggedIn: () => sessionStorage.getItem('makhzani.auth.v1') === '1' || localStorage.getItem('makhzani.remembered.v1') === '1', async login(u,p,remember=false) { try { const data=await MakhzaniWeb.login(u,p); if(remember&&data.token)localStorage.setItem('makhzani.web.token',data.token); } catch { if(!(u==='admin'&&p==='admin123')) return false; } sessionStorage.setItem('makhzani.auth.v1','1'); sessionStorage.setItem('makhzani.online','1'); if(remember) localStorage.setItem('makhzani.remembered.v1','1'); else { localStorage.removeItem('makhzani.remembered.v1'); localStorage.removeItem('makhzani.web.token'); } return true; } };
+const Auth = { isLoggedIn: () => sessionStorage.getItem('makhzani.auth.v1') === '1' || localStorage.getItem('makhzani.remembered.v1') === '1', async login(u,p,remember=false) { try { const data=await MakhzaniWeb.login(u,p); if(remember&&data.token)localStorage.setItem('makhzani.web.token',data.token); } catch { return false; } sessionStorage.setItem('makhzani.auth.v1','1'); sessionStorage.setItem('makhzani.online','1'); if(remember) localStorage.setItem('makhzani.remembered.v1','1'); else { localStorage.removeItem('makhzani.remembered.v1'); localStorage.removeItem('makhzani.web.token'); } return true; } };
 
 /* ── 2) أدوات مساعدة ──────────────────────────────────────── */
 const Utils = {
@@ -1537,3 +1537,4 @@ document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
+
