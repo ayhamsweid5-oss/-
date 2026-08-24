@@ -1,9 +1,10 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { query } = require('./db');
+const { query, ensureSchema } = require('./db');
 const secret = () => process.env.JWT_SECRET;
 async function login(username, password) {
+  await ensureSchema();
   let r = await query('SELECT * FROM users WHERE username=$1', [username]);
   if (!r.rowCount && username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
     const hash = await bcrypt.hash(password, 12);
@@ -22,3 +23,4 @@ function requireAuth(req, res, next) {
   }
 }
 module.exports = { login, requireAuth, bcrypt };
+
