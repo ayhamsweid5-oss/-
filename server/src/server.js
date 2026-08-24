@@ -13,4 +13,7 @@ app.use('/api',apiRoutes.setRealtime(event=>io.emit('data.changed',event)));
 io.use((socket,next)=>{try{const token=socket.handshake.auth&&socket.handshake.auth.token;socket.user=jwt.verify(token,process.env.JWT_SECRET);next()}catch{next(new Error('UNAUTHORIZED'))}});
 io.on('connection',socket=>{socket.join('inventory');socket.on('join',room=>{if(typeof room==='string'&&room.length<80)socket.join(room);});});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({error:'INTERNAL_ERROR'});});
-const port=Number(process.env.PORT||3000); server.listen(port,'0.0.0.0',()=>console.log(`Makhzani API listening on :${port}`));
+const port=Number(process.env.PORT||3000);
+if(require.main===module){ server.listen(port,'0.0.0.0',()=>console.log("Makhzani API listening on :"+port)); }
+module.exports={app,io,server};
+
