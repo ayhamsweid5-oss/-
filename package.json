@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.12.0",
     "realm": "^12.14.1",
-    "serverless-http": "^3.2.0"
+    "serverless-http": "^3.2.0",
+    "socket.io": "^4.7.5"
   }
 }
