@@ -5,6 +5,7 @@ backups/
 *.dump
 cloudflared.exe
 cloudflared*.log
+firebase-config.js
 
 **/.env.*
 !.env.example

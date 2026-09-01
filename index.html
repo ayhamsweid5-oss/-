@@ -427,7 +427,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
-<section class="auth-screen" id="authScreen"><form class="auth-card" id="loginForm"><div class="brand-badge" style="margin:auto">📦</div><h2>تسجيل الدخول</h2><p>أدخل بياناتك للوصول إلى نظام مخزني</p><div class="field"><label for="loginUser">اسم المستخدم</label><input id="loginUser" autocomplete="username" required></div><div class="field"><label for="loginPass">كلمة المرور</label><input id="loginPass" type="password" autocomplete="current-password" required></div><label style="display:flex;align-items:center;gap:8px;text-align:right;margin:4px 0 12px"><input id="rememberMe" type="checkbox"> تذكرني</label><button class="btn btn-primary" type="submit">دخول</button><div class="auth-error" id="authError"></div></form></section>
+<section class="auth-screen" id="authScreen"><form class="auth-card" id="loginForm"><div class="brand-badge" style="margin:auto">📦</div><h2>تسجيل الدخول</h2><p>أدخل بياناتك للوصول إلى نظام مخزني</p><div class="field"><label for="loginUser">البريد الإلكتروني</label><input id="loginUser" type="email" autocomplete="username" required></div><div class="field"><label for="loginPass">كلمة المرور</label><input id="loginPass" type="password" autocomplete="current-password" required></div><label style="display:flex;align-items:center;gap:8px;text-align:right;margin:4px 0 12px"><input id="rememberMe" type="checkbox"> تذكرني</label><button class="btn btn-primary" type="submit">دخول</button><div class="auth-error" id="authError"></div></form></section>
 
 <div class="app">
 
@@ -691,7 +691,11 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
 <!-- دلائل التصنيف (تُبنى ديناميكيًا) -->
 <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
-<script src="web-data-adapter.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="firebase-data-adapter.js"></script>
 <script>
 'use strict';
 /* ════════════════════════════════════════════════════════════
@@ -862,7 +866,14 @@ const InventoryService = {
   updateProduct(id, patch) {
     const error = this.validateProductFields(patch, id);
     if (error) return Utils.fail(error);
-    const updated = ProductRepo.update(id, patch);   // لا نلمس الكمية هنا
+    const before = ProductRepo.findById(id);
+    const previousQuantity = before ? Number(before.quantity || 0) : 0;
+    const updated = ProductRepo.update(id, patch);
+    if (updated && Object.prototype.hasOwnProperty.call(patch, 'quantity') && Number(patch.quantity) !== previousQuantity) {
+      TransactionRepo.insert({ id: Utils.uid(), type: 'ADJUSTMENT', productId: id, productName: updated.name,
+        quantity: Number(patch.quantity) - previousQuantity, previousQuantity,
+        newQuantity: Number(patch.quantity), note: 'تعديل مباشر للكمية', date: new Date().toISOString() });
+    }
     persist();
     return Utils.ok(updated);
   },
@@ -870,17 +881,19 @@ const InventoryService = {
   deleteProduct(id) {
     const product = ProductRepo.findById(id);
     if (!product) return Utils.fail('المنتج غير موجود');
+    if (sessionStorage.getItem('makhzani.online') === '1' && MakhzaniWeb.deleteMaterial) MakhzaniWeb.deleteMaterial(id).catch(() => UI.toast('تعذر تعطيل المادة على Firebase','error'));
     TransactionRepo.removeByProduct(id);
     ProductRepo.remove(id);
     persist();
     return Utils.ok();
   },
 
-  registerStockIn(productId, qty, note = '') {
+  async registerStockIn(productId, qty, note = '') {
     const product = ProductRepo.findById(productId);
     if (!product)      return Utils.fail('المنتج غير موجود');
     if (!(qty > 0))    return Utils.fail('أدخل كمية صحيحة أكبر من صفر');
 
+    if (sessionStorage.getItem('makhzani.online') === '1' && MakhzaniWeb.changeStock) { try { await MakhzaniWeb.changeStock(productId, qty, note, 'IN'); } catch(e) { return Utils.fail(e.message || 'تعذر حفظ الحركة'); } }
     ProductRepo.update(productId, { quantity: product.quantity + qty });
     TransactionRepo.insert({
       id: Utils.uid(), type: 'IN', productId, productName: product.name,
@@ -893,13 +906,14 @@ const InventoryService = {
     return Utils.ok(product, warning);
   },
 
-  registerStockOut(productId, qty, note = '') {
+  async registerStockOut(productId, qty, note = '') {
     const product = ProductRepo.findById(productId);
     if (!product)    return Utils.fail('المنتج غير موجود');
     if (!(qty > 0))  return Utils.fail('أدخل كمية صحيحة أكبر من صفر');
     if (qty > product.quantity) return Utils.fail(`الكمية المطلوبة أكبر من المتاح (${product.quantity})`);
 
     const remaining = product.quantity - qty;
+    if (sessionStorage.getItem('makhzani.online') === '1' && MakhzaniWeb.changeStock) { try { await MakhzaniWeb.changeStock(productId, -qty, note, 'OUT'); } catch(e) { return Utils.fail(e.message || 'تعذر حفظ الحركة'); } }
     ProductRepo.update(productId, { quantity: remaining });
     TransactionRepo.insert({
       id: Utils.uid(), type: 'OUT', productId, productName: product.name,
@@ -1333,7 +1347,7 @@ function bindEvents() {
   });
   Utils.$('#bellBtn').addEventListener('click', () => navigate('dashboard'));
   Utils.$('#btnExportReport').addEventListener('click', () => { const lines=['المنتج,الوارد,الصادر']; const m={}; TransactionRepo.all().forEach(t=>{m[t.productName]??={in:0,out:0};m[t.productName][t.type==='IN'?'in':'out']+=t.quantity}); Object.entries(m).forEach(([n,v])=>lines.push(`"${n.replaceAll('"','""')}",${v.in},${v.out}`)); Utils.download('makhzani-report.csv','\ufeff'+lines.join('\n'),'text/csv;charset=utf-8'); UI.toast('تم تصدير التقرير'); });
-  Utils.$('#btnNewContact').addEventListener('click', () => { const name=prompt('اسم المورد أو العميل:'); if(!name||!name.trim()) return; const kind=(prompt('اكتب supplier للمورد أو customer للعميل:','supplier')||'supplier').toLowerCase()==='customer'?'customer':'supplier'; const phone=prompt('رقم الهاتف (اختياري):','')||''; contacts.unshift({id:Utils.uid(),name:name.trim(),kind,phone,email:'',note:''}); localStorage.setItem('makhzani.contacts.v1',JSON.stringify(contacts)); renderContacts(); UI.toast('تمت إضافة جهة الاتصال'); });
+  Utils.$('#btnNewContact').addEventListener('click', () => { const name=prompt('اسم المورد أو العميل:'); if(!name||!name.trim()) return; const kind=(prompt('اكتب supplier للمورد أو customer للعميل:','supplier')||'supplier').toLowerCase()==='customer'?'customer':'supplier'; const phone=prompt('رقم الهاتف (اختياري):','')||''; contacts.unshift({id:Utils.uid(),name:name.trim(),kind,phone,email:'',note:''}); localStorage.setItem('makhzani.contacts.v1',JSON.stringify(contacts)); if(sessionStorage.getItem('makhzani.online')==='1') MakhzaniWeb.saveSnapshot({products:state.products,transactions:state.transactions,contacts}).catch(()=>UI.toast('تعذر مزامنة جهة الاتصال','error')); renderContacts(); UI.toast('تمت إضافة جهة الاتصال'); });
   Utils.$('#contactChips').addEventListener('click', e => { const b=e.target.closest('[data-kind]'); if(!b)return; contactKind=b.dataset.kind; Utils.$$('#contactChips .chip').forEach(x=>x.classList.toggle('is-active',x===b)); renderContacts(); });
 
   /* تفويض عام للأزرار الديناميكية */
@@ -1398,7 +1412,7 @@ function bindEvents() {
       category     : Utils.$('#f-category').value.trim(),
       purchasePrice: Number(Utils.$('#f-purchase').value) || 0,
       salePrice    : Number(Utils.$('#f-sale').value) || 0,
-      quantity     : Math.max(0, parseInt(Utils.$('#f-quantity').value, 10) || 0),
+      quantity     : parseInt(Utils.$('#f-quantity').value, 10) || 0,
       minStock     : Math.max(0, parseInt(Utils.$('#f-min').value, 10) || 0)
     };
     const error = InventoryService.validateProductFields(data, editingProductId);
@@ -1422,7 +1436,7 @@ function bindEvents() {
 
   /* نموذج الحركة */
   Utils.$('#s-product').addEventListener('change', updateStockHint);
-  Utils.$('#stockForm').addEventListener('submit', e => {
+  Utils.$('#stockForm').addEventListener('submit', async e => {
     e.preventDefault();
     clearFormErrors('stockForm');
     const productId = Utils.$('#s-product').value;
@@ -1433,8 +1447,8 @@ function bindEvents() {
     if (!Number.isInteger(qty) || qty <= 0) { setFieldError('s-qty', 'e-sqty', 'أدخل كمية صحيحة أكبر من صفر'); return; }
 
     const result = stockMode === 'IN'
-      ? InventoryService.registerStockIn(productId, qty, note)
-      : InventoryService.registerStockOut(productId, qty, note);
+      ? await InventoryService.registerStockIn(productId, qty, note)
+      : await InventoryService.registerStockOut(productId, qty, note);
 
     if (!result.ok) { setFieldError('s-qty', 'e-sqty', result.error); UI.toast(result.error, 'error'); return; }
 
@@ -1511,18 +1525,21 @@ function seedData() {
 }
 
 /* ── 9) الإقلاع ───────────────────────────────────────────── */
-function init() {
+async function init() {
+  if (window.MakhzaniWeb && MakhzaniWeb.anonymousLogin && !Auth.isLoggedIn()) {
+    try { await MakhzaniWeb.anonymousLogin(); } catch (e) { document.body.classList.add('auth-locked'); }
+  }
   if (!Auth.isLoggedIn()) document.body.classList.add('auth-locked');
   Utils.$('#loginForm').addEventListener('submit', async e => { e.preventDefault(); if (await Auth.login(Utils.$('#loginUser').value.trim(), Utils.$('#loginPass').value, Utils.$('#rememberMe').checked)) { document.body.classList.remove('auth-locked'); startApp(); } else Utils.$('#authError').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة'; });
   if (!Auth.isLoggedIn()) return;
+  document.body.classList.remove('auth-locked');
   startApp();
 }
 function startApp() {
-  state = StorageGateway.load();
-  if (!state) {
-    state = CONFIG.seedDemo ? seedData() : { products: [], transactions: [] };
-    StorageGateway.save(state);
-  }
+  const online = sessionStorage.getItem('makhzani.online') === '1';
+  // Online mode is Firestore-first: never paint a stale local snapshot before it arrives.
+  state = online ? { products: [], transactions: [] } : StorageGateway.load();
+  if (!state) { state = CONFIG.seedDemo ? seedData() : { products: [], transactions: [] }; StorageGateway.save(state); }
 
   Utils.$('#todayChip').textContent =
     new Intl.DateTimeFormat('ar', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
@@ -1530,7 +1547,7 @@ function startApp() {
   bindEvents();
   refreshChrome();
   navigate('dashboard');
-  if (sessionStorage.getItem('makhzani.online') === '1') { const applyRemote = remote => { state = {products:remote.products, transactions:remote.transactions}; localStorage.setItem(CONFIG.storageKey, JSON.stringify(state)); contacts.splice(0, contacts.length, ...(remote.contacts || [])); localStorage.setItem('makhzani.contacts.v1', JSON.stringify(contacts)); renderCurrentView(); refreshChrome(); }; MakhzaniWeb.snapshot().then(applyRemote).catch(() => {}); MakhzaniWeb.connectRealtime(event => { if (event && (event.type === 'inventory.changed' || event.type === 'product.created' || event.type === 'snapshot.changed')) MakhzaniWeb.snapshot().then(applyRemote).catch(() => {}); }); }
+  if (online) { UI.toast('جاري تحميل أحدث البيانات من Firebase...'); const applyRemote = remote => { state = {products:remote.products, transactions:remote.transactions}; localStorage.setItem(CONFIG.storageKey, JSON.stringify(state)); contacts.splice(0, contacts.length, ...(remote.contacts || [])); localStorage.setItem('makhzani.contacts.v1', JSON.stringify(contacts)); renderCurrentView(); refreshChrome(); }; MakhzaniWeb.snapshot().then(applyRemote).catch(() => UI.toast('تعذر الاتصال بقاعدة البيانات','error')); MakhzaniWeb.connectRealtime(event => { if (event && event.remote) applyRemote(event.remote); }); }
 }
 
 document.addEventListener('DOMContentLoaded', init);
