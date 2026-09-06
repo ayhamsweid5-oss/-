@@ -627,7 +627,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
             <small class="err" id="e-name"></small>
           </div>
           <div class="field">
-            <label for="f-sku">كود المنتج (SKU) — يُعبأ تلقائيًا</label>
+            <label for="f-sku">كود المنتج (SKU) — إدخال يدوي</label>
             <input id="f-sku" autocomplete="off" placeholder="مثال: EL-1042">
             <small class="err" id="e-sku"></small>
           </div>
@@ -723,7 +723,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="firebase-data-adapter.js?v=49"></script>
+<script src="firebase-data-adapter.js?v=50"></script>
 <script>
 'use strict';
 /* ════════════════════════════════════════════════════════════
@@ -1410,7 +1410,7 @@ function bindEvents() {
   Utils.$('#categoryFilter').addEventListener('change', e => { productFilters.cat = e.target.value; renderProductsTable(); });
   Utils.$('#supplierFilter').addEventListener('change', e => { productFilters.supplier = e.target.value; renderProductsTable(); });
   Utils.$('#btnNewProduct').addEventListener('click', () => openProductModal());
-  Utils.$('#f-category').addEventListener('change', async e => { if (editingProductId || sessionStorage.getItem('makhzani.online') !== '1') return; const name=e.target.value.trim(); Utils.$('#f-sku').value=''; Utils.$('#f-sku').title=''; if(!name)return; try { const code=await MakhzaniWeb.previewProductCode(name); if(code) { Utils.$('#f-sku').value=code.sku; Utils.$('#f-sku').title=`بادئة التصنيف: ${code.codePrefix}`; } } catch(err) { console.warn('تعذر معاينة كود المنتج',err); } });
+  Utils.$('#f-category').addEventListener('change', () => { Utils.$('#f-sku').title=''; });
   Utils.$('#btnExportCsv').addEventListener('click', exportProductsCsv);
 
   /* جدول المنتجات: إجراءات الصف */
@@ -1455,7 +1455,7 @@ function bindEvents() {
     clearFormErrors('productForm');
     const data = {
       name         : Utils.$('#f-name').value.trim(),
-      sku          : Utils.$('#f-sku').value.trim().toUpperCase(),
+      sku          : Utils.$('#f-sku').value.trim(),
       category     : Utils.$('#f-category').value.trim(),
       purchasePrice: Number(Utils.$('#f-purchase').value) || 0,
       salePrice    : Number(Utils.$('#f-sale').value) || 0,
@@ -1465,12 +1465,6 @@ function bindEvents() {
     };
     if (data.category && typeof data.category === 'object') {
       const c=data.category; data.category=String(c.name||c.categoryName||'').trim(); data.categoryId=String(c.id||c.categoryId||'').trim();
-    }
-    if (!editingProductId && sessionStorage.getItem('makhzani.online') === '1' && MakhzaniWeb.allocateProductCode) {
-      const text = v => typeof v === 'object' ? String(v.codePrefix||v.categoryCode||v.prefix||'').trim() : String(v||'').trim();
-      let known = text(ProductRepo.all().find(p => text(p.category) === data.category && (p.codePrefix || p.categoryCode))?.codePrefix) || text(ProductRepo.all().find(p => text(p.category) === data.category && p.categoryCode)?.categoryCode) || '';
-      if (!known) known = prompt(`أدخل بادئة كود المنتجات لأول مادة في «${data.category}» (مثال MM):`) || '';
-      try { const code=await MakhzaniWeb.allocateProductCode(data.category, known); data.sku=code.sku; data.categoryId=code.categoryId; data.categoryName=code.categoryName; data.categoryCode=code.categoryCode; data.codePrefix=code.codePrefix; Utils.$('#f-sku').value=data.sku; } catch(err) { return UI.toast(err.message==='CATEGORY_PREFIX_REQUIRED'?'يجب إدخال بادئة الكود':'تعذر إنشاء كود المادة: '+err.message,'error'); }
     }
     const error = InventoryService.validateProductFields(data, editingProductId);
     if (error) { UI.toast(error, 'error'); return; }
