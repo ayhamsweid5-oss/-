@@ -9,6 +9,7 @@
   if (auth) auth.onAuthStateChanged(u => { profilePromise = u ? db.collection('users').doc(u.uid).get().then(s => { profile = s.exists ? s.data() : null; if (profile?.branchId) sessionStorage.setItem('makhzani.branchId', profile.branchId); return profile; }) : Promise.resolve(null); if (!u) { profile = null; sessionStorage.removeItem('makhzani.auth.v1'); sessionStorage.removeItem('makhzani.online'); sessionStorage.removeItem('makhzani.branchId'); document.body.classList.add('auth-locked'); } });
   if (db) db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
   const iso = v => v && typeof v.toDate === 'function' ? v.toDate().toISOString() : (v || new Date().toISOString());
+  const textValue = (v, keys=[]) => { if(v==null) return ''; if(typeof v==='string' || typeof v==='number') return String(v).trim(); if(typeof v==='object'){ for(const k of keys) { const x=textValue(v[k]); if(x)return x; } } return ''; };
   const user = () => auth && auth.currentUser;
   const branch = async () => { const p = await profilePromise; const id = p?.branchId || sessionStorage.getItem('makhzani.branchId'); if (!id) throw Error('لا يوجد فرع مرتبط بهذا المستخدم'); return id; };
   const map = d => { const v=d.data(); const created=iso(v.createdAt || v.date); return { id:d.id, ...v, createdAt:created, updatedAt:iso(v.updatedAt), date:iso(v.date || v.createdAt) }; };
@@ -70,36 +71,36 @@
     const key=encodeURIComponent(`${branchId}__${name}`), ref=db.collection('categories').doc(key), result={};
     await db.runTransaction(async tx=>{
       const snap=await tx.get(ref); const d=snap.exists?snap.data():null;
-      let codePrefix=String(d?.codePrefix||d?.categoryCode||code||'').trim();
+      let codePrefix=textValue(d?.codePrefix,['codePrefix','categoryCode','code','prefix']) || textValue(d?.categoryCode,['codePrefix','categoryCode','code','prefix']) || textValue(code,['codePrefix','categoryCode','code','prefix']);
       if(!codePrefix) throw Error('CATEGORY_PREFIX_REQUIRED');
       let last=Number(d?.lastSequence||d?.nextSequence-1||0);
       const old=await tx.get(db.collection('materials').where('branchId','==',branchId));
       const escaped=codePrefix.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&');
       const pattern=new RegExp(`^${escaped}-([0-9]+)$`);
-      const categoryId=String(d?.categoryId||key);
+      const categoryId=textValue(d?.categoryId,['id','categoryId']) || key;
       old.docs.forEach(x=>{ const p=x.data(), linked=String(p.categoryId||'')===categoryId || String(p.category||p.categoryName||'').trim()===name; if(!linked) return; const m=String(p.sku||p.productCode||p.code||'').trim().match(pattern); if(m) last=Math.max(last,Number(m[1])); });
-      const next=last+1; result.categoryId=key; result.categoryName=d?.categoryName||name; result.codePrefix=codePrefix; result.categoryCode=codePrefix; result.lastSequence=next; result.sku=`${codePrefix}-${String(next).padStart(3,'0')}`;
-      tx.set(ref,{branchId,categoryId:key,categoryName:result.categoryName,codePrefix,categoryCode:codePrefix,lastSequence:next,nextSequence:next+1,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      const next=last+1; result.categoryId=categoryId; result.categoryName=textValue(d?.categoryName,['name','categoryName'])||name; result.codePrefix=codePrefix; result.categoryCode=codePrefix; result.lastSequence=next; result.sku=`${codePrefix}-${String(next).padStart(3,'0')}`;
+      tx.set(ref,{branchId,categoryId,categoryName:result.categoryName,codePrefix,categoryCode:codePrefix,lastSequence:next,nextSequence:next+1,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
     });
     return result;
   }
   async function previewProductCode(categoryName) {
     if(!valid || !user()) throw Error('UNAUTHENTICATED'); const branchId=await branch(), name=String(categoryName||'').trim(); if(!name) return null;
     const key=encodeURIComponent(`${branchId}__${name}`), snap=await db.collection('categories').doc(key).get(), d=snap.exists?snap.data():null;
-    let prefix=String(d?.codePrefix||d?.categoryCode||'').trim(), last=Number(d?.lastSequence||d?.nextSequence-1||0);
+    let prefix=textValue(d?.codePrefix,['codePrefix','categoryCode','code','prefix']) || textValue(d?.categoryCode,['codePrefix','categoryCode','code','prefix']), last=Number(d?.lastSequence||d?.nextSequence-1||0);
     const old=await db.collection('materials').where('branchId','==',branchId).get();
-    const categoryId=String(d?.categoryId||key);
-    const linked=p=>String(p.categoryId||'')===categoryId || String(p.category||p.categoryName||'').trim()===name;
+    const categoryId=textValue(d?.categoryId,['id','categoryId']) || key;
+    const linked=p=>textValue(p.categoryId,['id','categoryId'])===categoryId || textValue(p.category,['name','categoryName'])===name || textValue(p.categoryName,['name','categoryName'])===name;
     if(!prefix){ old.docs.forEach(x=>{const p=x.data(); if(!linked(p))return; const s=String(p.sku||p.productCode||p.code||'').trim(); const i=s.lastIndexOf('-'); if(i>0 && /^\d+$/.test(s.slice(i+1))) prefix=s.slice(0,i); }); }
     if(prefix){ const escaped=prefix.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&'), pattern=new RegExp(`^${escaped}-([0-9]+)$`); old.docs.forEach(x=>{const p=x.data(); if(!linked(p))return; const m=String(p.sku||p.productCode||p.code||'').trim().match(pattern); if(m) last=Math.max(last,Number(m[1])); }); }
     console.debug('[Makhzani] product-code preview', {categoryId, categoryName:name, prefix, productCount:old.size, codes:old.docs.map(x=>x.data()).filter(linked).map(p=>p.sku||p.productCode||p.code).filter(Boolean), maxSequence:last, nextSku:prefix?`${prefix}-${String(last+1).padStart(3,'0')}`:null});
-    if(!prefix) return null; const next=last+1; return {categoryId:key,categoryName:d?.categoryName||name,codePrefix:prefix,sku:`${prefix}-${String(next).padStart(3,'0')}`};
+    if(!prefix) return null; const next=last+1; return {categoryId,categoryName:textValue(d?.categoryName,['name','categoryName'])||name,codePrefix:prefix,sku:`${prefix}-${String(next).padStart(3,'0')}`};
   }
   window.MakhzaniWeb = {
     async anonymousLogin(){ if(!valid) throw Error('FIREBASE_NOT_CONFIGURED'); const r=await auth.signInAnonymously(); sessionStorage.setItem('makhzani.auth.v1','1'); sessionStorage.setItem('makhzani.online','1'); return r; },
     async login(email,password){ if(!valid) throw Error('FIREBASE_NOT_CONFIGURED'); const r=await auth.signInWithEmailAndPassword(email,password); sessionStorage.setItem('makhzani.web.token',r.user.uid); profile=await db.collection('users').doc(r.user.uid).get().then(s=>s.exists?s.data():null); if(!profile?.branchId) { await auth.signOut(); throw Error('لا يوجد فرع مرتبط بهذا المستخدم'); } profilePromise=Promise.resolve(profile); sessionStorage.setItem('makhzani.branchId',profile.branchId); return {user:r.user,profile}; },
     logout(){ return auth && auth.signOut(); }, snapshot, changeStock, deleteMaterial, saveMonthlyCount, listBranchesUsers, createBranch, migrateLegacyData, deleteBranchMovements, deleteContact, allocateProductCode, previewProductCode,
-    saveSnapshot: async s => { if(!valid || !user()) throw Error('UNAUTHENTICATED'); const branchId=await branch(), batch=db.batch(), now=firebase.firestore.FieldValue.serverTimestamp(); (s.products||[]).forEach(p=>batch.set(db.collection('materials').doc(p.id),{...p,branchId,isDeleted:false,updatedAt:now,updatedBy:user().uid},{merge:true})); (s.transactions||[]).forEach(t=>{ const ref=db.collection('stockMovements').doc(t.id); const data={branchId,materialId:t.productId,materialName:t.productName,type:t.type,quantity:t.quantity,previousQuantity:t.previousQuantity ?? null,newQuantity:t.newQuantity ?? null,note:t.note||'',createdBy:user().uid,userName:user().email||''}; if(t.createdAt || t.date) data.createdAt=firebase.firestore.Timestamp.fromDate(new Date(t.createdAt || t.date)); batch.set(ref,data,{merge:true}); }); (s.contacts||[]).forEach(c=>batch.set(db.collection('contacts').doc(c.id),{...c,branchId,updatedAt:now,updatedBy:user().uid},{merge:true})); await batch.commit(); },
+    saveSnapshot: async s => { if(!valid || !user()) throw Error('UNAUTHENTICATED'); const branchId=await branch(), batch=db.batch(), now=firebase.firestore.FieldValue.serverTimestamp(); (s.products||[]).forEach(p=>{ const safe={...p,category:textValue(p.category,['name','categoryName']),categoryId:textValue(p.categoryId,['id','categoryId']),categoryName:textValue(p.categoryName,['name','categoryName']),categoryCode:textValue(p.categoryCode,['code','categoryCode','codePrefix']),codePrefix:textValue(p.codePrefix,['codePrefix','categoryCode','code']),sku:textValue(p.sku,['sku','productCode','code']),branchId,isDeleted:false,updatedAt:now,updatedBy:user().uid}; batch.set(db.collection('materials').doc(p.id),safe,{merge:true}); }); (s.transactions||[]).forEach(t=>{ const ref=db.collection('stockMovements').doc(t.id); const data={branchId,materialId:textValue(t.productId,['id','materialId']),materialName:textValue(t.productName,['name','materialName']),type:textValue(t.type,['type']),quantity:Number(t.quantity||0),previousQuantity:t.previousQuantity ?? null,newQuantity:t.newQuantity ?? null,note:textValue(t.note,['text','note']),createdBy:user().uid,userName:user().email||''}; if(t.createdAt || t.date) data.createdAt=firebase.firestore.Timestamp.fromDate(new Date(t.createdAt || t.date)); batch.set(ref,data,{merge:true}); }); (s.contacts||[]).forEach(c=>batch.set(db.collection('contacts').doc(c.id),{...c,branchId,updatedAt:now,updatedBy:user().uid},{merge:true})); await batch.commit(); },
     connectRealtime(onChange){ if(!valid) return ()=>{}; let p=[],m=[],c=[]; const emit=()=>onChange({type:'snapshot.changed',remote:{products:p,transactions:m,contacts:c}}); let stops=[]; branch().then(branchId=>{ const fail=e=>console.error('Firebase realtime:',e); stops=[db.collection('materials').where('branchId','==',branchId).where('isDeleted','==',false).onSnapshot(x=>{p=x.docs.map(map);emit();},fail),db.collection('stockMovements').where('branchId','==',branchId).limit(500).onSnapshot(x=>{m=x.docs.map(y=>({...map(y),productId:y.data().materialId,productName:y.data().materialName})).sort((a,b)=>new Date(b.date)-new Date(a.date));emit();},fail),db.collection('contacts').where('branchId','==',branchId).onSnapshot(x=>{c=x.docs.map(map);emit();},fail)]; }).catch(e=>console.error('Firebase branch:',e)); return ()=>stops.forEach(stop=>stop()); }
   };
   // تصدير صريح لضمان توفر الدالة حتى مع النسخ القديمة المخزنة مؤقتًا.

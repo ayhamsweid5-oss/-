@@ -723,7 +723,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="firebase-data-adapter.js?v=46"></script>
+<script src="firebase-data-adapter.js?v=47"></script>
 <script>
 'use strict';
 /* ════════════════════════════════════════════════════════════
@@ -1463,8 +1463,12 @@ function bindEvents() {
       minStock     : Math.max(0, parseInt(Utils.$('#f-min').value, 10) || 0),
       supplierId   : Utils.$('#f-supplier').value || null
     };
+    if (data.category && typeof data.category === 'object') {
+      const c=data.category; data.category=String(c.name||c.categoryName||'').trim(); data.categoryId=String(c.id||c.categoryId||'').trim();
+    }
     if (!editingProductId && sessionStorage.getItem('makhzani.online') === '1' && MakhzaniWeb.allocateProductCode) {
-      let known = ProductRepo.all().find(p => p.category === data.category && (p.codePrefix || p.categoryCode))?.codePrefix || ProductRepo.all().find(p => p.category === data.category && p.categoryCode)?.categoryCode || '';
+      const text = v => typeof v === 'object' ? String(v.codePrefix||v.categoryCode||v.prefix||'').trim() : String(v||'').trim();
+      let known = text(ProductRepo.all().find(p => text(p.category) === data.category && (p.codePrefix || p.categoryCode))?.codePrefix) || text(ProductRepo.all().find(p => text(p.category) === data.category && p.categoryCode)?.categoryCode) || '';
       if (!known) known = prompt(`أدخل بادئة كود المنتجات لأول مادة في «${data.category}» (مثال MM):`) || '';
       try { const code=await MakhzaniWeb.allocateProductCode(data.category, known); data.sku=code.sku; data.categoryId=code.categoryId; data.categoryName=code.categoryName; data.categoryCode=code.categoryCode; data.codePrefix=code.codePrefix; Utils.$('#f-sku').value=data.sku; } catch(err) { return UI.toast(err.message==='CATEGORY_PREFIX_REQUIRED'?'يجب إدخال بادئة الكود':'تعذر إنشاء كود المادة: '+err.message,'error'); }
     }
