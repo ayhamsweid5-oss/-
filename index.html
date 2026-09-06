@@ -412,18 +412,27 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
   .table-scroll{max-height:none}
 }
 @media (max-width:620px){
+  body{overflow-x:hidden}
+  .main{padding:14px 10px 40px;min-width:0;overflow:hidden}
+  .topbar{gap:8px;align-items:flex-start}.topbar h2{font-size:20px;line-height:1.35}.subtitle{font-size:12px}
+  .toolbar{align-items:stretch;gap:8px}.toolbar .search-box,.toolbar input[type=month],.toolbar select{min-width:100%;width:100%}.toolbar .btn{min-height:42px;flex:1}
   .tiles{grid-template-columns:1fr}
   .form-grid{grid-template-columns:1fr}
   .field.span-2{grid-column:span 1}
   .topbar h2{font-size:20px}
   .date-chip{display:none}
+  .dash-grid{display:block}.dash-grid>*{margin-bottom:10px}.dash-cols{display:block}.dash-cols>*{margin-bottom:10px}
+  .table-card{max-width:100%;overflow:hidden}.table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.table-scroll table{min-width:760px}
+  .modal-overlay{padding:10px}.modal-panel{width:100%;max-height:calc(100vh - 20px);border-radius:14px}.modal-head,.modal-body,.modal-foot{padding-inline:14px}.modal-foot{flex-wrap:wrap}.modal-foot .btn{min-height:42px;flex:1}
+  .toast-stack{inset-inline:10px;bottom:10px;max-width:none}.toast{width:100%}
 }
+@media (max-width:380px){.main{padding-inline:7px}.nav-btn{padding:9px 10px;font-size:12px}.table-scroll table{min-width:700px}.panel{padding:14px}.modal-body{padding-block:14px}}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
 }
 </style>
 <style>
-.auth-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:linear-gradient(135deg,#0D211B,#0E7C5B);padding:20px}.auth-card{width:min(420px,100%);background:#fff;border-radius:20px;padding:32px;box-shadow:0 24px 70px #0004;text-align:center}.auth-card h2{font-family:var(--font-display);font-size:26px;color:var(--ink);margin:12px 0 4px}.auth-card p{color:var(--muted);margin-bottom:22px}.auth-card .field{display:block;text-align:right;margin-bottom:14px}.auth-card label{display:block;font-weight:700;margin-bottom:5px}.auth-card input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#fafcf9}.auth-card .btn{width:100%;margin-top:8px}.auth-error{color:var(--danger);min-height:24px;margin-top:10px;font-size:13px}body.auth-locked .app{display:none}body:not(.auth-locked) .auth-screen{display:none}
+.auth-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:linear-gradient(135deg,#0D211B,#0E7C5B);padding:20px}.auth-card{width:min(420px,100%);background:#fff;border-radius:20px;padding:32px;box-shadow:0 24px 70px #0004;text-align:center}.auth-card h2{font-family:var(--font-display);font-size:26px;color:var(--ink);margin:12px 0 4px}.auth-card p{color:var(--muted);margin-bottom:22px}.auth-card .field{display:block;text-align:right;margin-bottom:14px}.auth-card label{display:block;font-weight:700;margin-bottom:5px}.auth-card input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#fafcf9}.auth-card .btn{width:100%;margin-top:8px}.auth-error{color:var(--danger);min-height:24px;margin-top:10px;font-size:13px}body.auth-locked .app{display:none}body:not(.auth-locked) .auth-screen{display:none}body.firebase-loading .app{visibility:hidden}body.firebase-loading:after{content:'جاري تحميل أحدث البيانات من Firebase...';position:fixed;inset:0;z-index:9998;display:grid;place-items:center;background:#f5faf7;color:#0e7c5b;font-size:20px;font-weight:700}
 </style>
 </head>
 <body>
@@ -453,8 +462,10 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v11"/><path d="M4.5 10.5L8 14l3.5-3.5"/><path d="M16 21V10"/><path d="M12.5 13.5L16 10l3.5 3.5"/></svg>
         الحركات والسجل
       </button>
+      <button class="nav-btn" data-view="inventory-count">📋 الجرد الشهري</button>
       <button class="nav-btn" data-view="contacts">👥 الموردون والعملاء</button>
       <button class="nav-btn" data-view="reports">📊 التقارير</button>
+      <button class="nav-btn" data-view="users-branches">👤 المستخدمون والفروع</button>
     </nav>
 
     <div class="sidebar-foot">
@@ -468,6 +479,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V3"/><path d="M8 7l4-4 4 4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
           استعادة
         </button>
+        <button id="btnLogout" class="btn-logout" type="button">⎋ تسجيل الخروج</button>
       </div>
       <p class="side-ver">إصدار 1.0 · جاهز للتحويل إلى Electron</p>
     </div>
@@ -496,6 +508,16 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
       <div id="dashAlerts"></div>
       <div class="dash-grid" id="dashStats"></div>
       <div class="dash-cols" id="dashLists"></div>
+      <div class="panel" style="margin-top:18px" id="dashboardAdminCard">
+        <div class="panel-head"><h3>👤 المستخدمون والفروع</h3><button class="btn btn-primary" data-goto="users-branches">إدارة المستخدمين والفروع</button></div>
+        <div class="panel-body"><p class="hint" style="margin:0">اربط كل مستخدم بفرع مستقل. إنشاء الحساب وكلمة المرور يتم بأمان من Firebase Authentication.</p></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-users-branches">
+      <div class="toolbar"><button class="btn btn-primary" id="btnBranchGuide">+ إضافة فرع</button><button class="btn btn-ghost" id="btnUserGuide">+ إضافة مستخدم</button><button class="btn btn-warn" id="btnMigrateLegacy">ترحيل البيانات القديمة</button></div>
+      <div class="panel"><div class="panel-head"><h3>الفروع</h3></div><div class="panel-body"><div class="table-scroll"><table><thead><tr><th>المعرّف</th><th>اسم الفرع</th><th>الحالة</th></tr></thead><tbody id="branchesTbody"></tbody></table></div></div></div>
+      <div class="panel" style="margin-top:18px"><div class="panel-head"><h3>المستخدمون المرتبطون بالفروع</h3></div><div class="panel-body"><div class="table-scroll"><table><thead><tr><th>الاسم</th><th>UID</th><th>الفرع</th><th>الصلاحية</th></tr></thead><tbody id="usersTbody"></tbody></table></div><p class="hint">إنشاء البريد وكلمة المرور يتم من Firebase Authentication، ثم أضف ملف users/{uid}.</p></div></div>
     </section>
 
     <!-- عرض: المنتجات -->
@@ -505,7 +527,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           <input type="search" id="productSearch" placeholder="ابحث بالاسم أو الكود (SKU)...">
         </div>
-        <select class="filter" id="categoryFilter"></select>
+        <select class="filter" id="categoryFilter"></select><select class="filter" id="supplierFilter"><option value="all">كل الموردين</option><option value="none">بدون مورد</option></select>
         <div class="search-box" title="متوافق مع قارئ باركود USB"><span>▦</span><input id="barcodeInput" inputmode="numeric" autocomplete="off" placeholder="امسح الباركود / SKU"></div>
         <span class="count-chip" id="productCount">0 منتج</span>
         <button class="btn btn-ghost" id="btnExportCsv" title="تصدير المنتجات CSV">
@@ -522,8 +544,8 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
           <table>
             <thead>
               <tr>
-                <th>المنتج</th><th>التصنيف</th>
-                <th class="num">شراء</th><th class="num">بيع</th>
+                <th>المنتج</th><th>التصنيف</th><th>المورد</th>
+                <th class="num">شراء</th><th class="num">بيع</th><th class="num">إجمالي القيمة</th>
                 <th class="num">الكمية</th><th class="num">الحد الأدنى</th>
                 <th>الحالة</th><th style="text-align:center">إجراءات</th>
               </tr>
@@ -532,6 +554,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
           </table>
         </div>
       </div>
+      <div class="panel" id="productsValueTotal" style="margin-top:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><strong>إجمالي قيمة المخزون</strong><strong class="pos" id="productsValueTotalAmount">0</strong></div>
       <div id="productsEmpty" hidden></div>
     </section>
 
@@ -555,7 +578,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           <input type="search" id="txSearch" placeholder="ابحث في السجل...">
         </div>
-        <span class="count-chip" id="txCount">0 حركة</span>
+        <span class="count-chip" id="txCount">0 حركة</span><button class="btn btn-danger" id="btnDeleteMovementLog">حذف سجل الحركات</button>
       </div>
       <div class="table-card">
         <div class="table-scroll">
@@ -570,6 +593,10 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
           </table>
         </div>
       </div>
+    </section>
+    <section class="view" id="view-inventory-count">
+      <div class="toolbar"><input class="filter" type="month" id="countMonth"><input class="search-box" id="countSearch" placeholder="ابحث بالاسم أو الكود"><select class="filter" id="countFilter"><option value="all">كل المواد</option><option value="stock">موجودة بالمستودع</option><option value="zero">رصيد صفر</option><option value="moved">عليها حركة</option><option value="none">بدون حركة</option><option value="match">مطابقة</option><option value="short">نقص</option><option value="over">زيادة</option></select><button class="btn btn-primary" id="countSave">اعتماد الجرد</button><button class="btn btn-ghost" id="countPrint">طباعة</button></div>
+      <div class="table-card"><div class="table-scroll"><table><thead><tr><th>الكود</th><th>المادة</th><th>الوحدة</th><th>بداية الشهر</th><th>وارد</th><th>صادر</th><th>المتوقع</th><th>الفعلي</th><th>الفرق</th><th>الحالة</th><th>ملاحظات</th></tr></thead><tbody id="countTbody"></tbody></table></div></div>
     </section>
     <section class="view" id="view-contacts">
       <div class="toolbar"><button class="btn btn-primary" id="btnNewContact">+ إضافة جهة اتصال</button><div class="chips" id="contactChips"><button class="chip is-active" data-kind="all">الكل</button><button class="chip" data-kind="supplier">الموردون</button><button class="chip" data-kind="customer">العملاء</button></div></div>
@@ -600,7 +627,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
             <small class="err" id="e-name"></small>
           </div>
           <div class="field">
-            <label for="f-sku">كود المنتج (SKU)</label>
+            <label for="f-sku">كود المنتج (SKU) — يُعبأ تلقائيًا</label>
             <input id="f-sku" autocomplete="off" placeholder="مثال: EL-1042">
             <small class="err" id="e-sku"></small>
           </div>
@@ -610,6 +637,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
             <datalist id="categoryList"></datalist>
             <small class="err" id="e-category"></small>
           </div>
+          <div class="field"><label for="f-supplier">المورد (اختياري)</label><select id="f-supplier"><option value="">بدون مورد</option></select></div>
           <div class="field">
             <label for="f-purchase">سعر الشراء</label>
             <input id="f-purchase" type="number" min="0" step="0.01" placeholder="0.00">
@@ -695,7 +723,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="firebase-data-adapter.js"></script>
+<script src="firebase-data-adapter.js?v=46"></script>
 <script>
 'use strict';
 /* ════════════════════════════════════════════════════════════
@@ -899,7 +927,7 @@ const InventoryService = {
       id: Utils.uid(), type: 'IN', productId, productName: product.name,
       quantity: qty, note, date: new Date().toISOString()
     });
-    persist();
+    if (sessionStorage.getItem('makhzani.online') === '1') { StorageGateway.save(state); Bus.emit('data:persisted'); } else persist();
 
     const warning = product.quantity + qty <= product.minStock
       ? `تنبيه: «${product.name}» ما زال عند أو تحت الحد الأدنى للمخزون` : null;
@@ -919,7 +947,7 @@ const InventoryService = {
       id: Utils.uid(), type: 'OUT', productId, productName: product.name,
       quantity: qty, note, date: new Date().toISOString()
     });
-    persist();
+    if (sessionStorage.getItem('makhzani.online') === '1') { StorageGateway.save(state); Bus.emit('data:persisted'); } else persist();
 
     let warning = null;
     if (remaining === 0)                  warning = `نفد مخزون «${product.name}» بالكامل!`;
@@ -938,7 +966,7 @@ const InventoryService = {
       stockValue,
       saleValue,
       profit        : saleValue - stockValue,
-      lowCount      : products.filter(p => p.quantity > 0 && p.quantity <= p.minStock).length,
+      lowCount      : products.filter(p => p.quantity !== 0 && p.quantity <= Number(p.minStock ?? 0)).length,
       outCount      : products.filter(p => p.quantity === 0).length
     };
   }
@@ -991,7 +1019,7 @@ function animateCounters(root) {
 /* ── 7ب) العروض ───────────────────────────────────────────── */
 let currentView = 'dashboard';
 let lastTouchedId = null;   // لوميض الصف بعد التعديل
-const productFilters = { q: '', cat: 'all' };
+const productFilters = { q: '', cat: 'all', supplier: 'all' };
 const txFilters      = { q: '', type: 'all' };
 let stockMode = 'IN';
 let editingProductId = null;
@@ -1002,12 +1030,16 @@ const VIEWS = {
   dashboard : { title: 'لوحة التحكم',    sub: 'مؤشرات المخزون والتنبيهات لحظة بلحظة', render: renderDashboard },
   products  : { title: 'المنتجات',       sub: 'إدارة الأصناف والأسعار والكميات',       render: renderProducts },
   movements : { title: 'الحركات والسجل', sub: 'استلام وصرف المخزون وتتبع كل عملية',    render: renderMovements }
+  ,'inventory-count' : { title: 'الجرد الشهري', sub: 'جرد فعلي مستقل لكل شهر', render: renderInventoryCount }
   ,contacts : { title: 'الموردون والعملاء', sub: 'إدارة بيانات الموردين والعملاء', render: renderContacts }
   ,reports : { title: 'التقارير', sub: 'ملخص أداء المخزون والحركات', render: renderReports }
+  ,'users-branches' : { title: 'المستخدمون والفروع', sub: 'إدارة الفروع وربط الحسابات', render: renderUsersBranches }
 };
+async function renderUsersBranches() { const b=Utils.$('#branchesTbody'), u=Utils.$('#usersTbody'); b.innerHTML='<tr><td colspan="3">جاري التحميل...</td></tr>'; u.innerHTML='<tr><td colspan="4">جاري التحميل...</td></tr>'; try { const d=await MakhzaniWeb.listBranchesUsers(), names=Object.fromEntries(d.branches.map(x=>[x.id,x.name])); b.innerHTML=d.branches.map(x=>`<tr><td>${Utils.esc(x.id)}</td><td>${Utils.esc(x.name||'—')}</td><td>${x.active===false?'متوقف':'فعال'}</td></tr>`).join('')||'<tr><td colspan="3">لا توجد فروع</td></tr>'; u.innerHTML=d.users.map(x=>`<tr><td>${Utils.esc(x.name||'—')}</td><td><code>${Utils.esc(x.id)}</code></td><td>${Utils.esc(names[x.branchId]||x.branchId||'—')}</td><td>${x.role==='admin'?'مدير':'مستخدم'}</td></tr>`).join('')||'<tr><td colspan="4">لا يوجد مستخدمون</td></tr>'; } catch(e) { b.innerHTML=`<tr><td colspan="3">تعذر التحميل: ${Utils.esc(e.message)}</td></tr>`; u.innerHTML=''; } }
 
 function renderContacts() { const rows = contacts.filter(c => contactKind === 'all' || c.kind === contactKind).map(c => `<tr><td><b>${Utils.esc(c.name)}</b></td><td>${c.kind === 'supplier' ? 'مورد' : 'عميل'}</td><td>${Utils.esc(c.phone || '—')}</td><td>${Utils.esc(c.email || '—')}</td><td>${Utils.esc(c.note || '—')}</td><td><button class="btn btn-danger btn-sm" data-delete-contact="${c.id}">حذف</button></td></tr>`).join(''); Utils.$('#contactsTbody').innerHTML = rows || '<tr><td colspan="6" class="empty-state">لا توجد بيانات بعد</td></tr>'; }
 function renderReports() { const ps=ProductRepo.all(), tx=TransactionRepo.all(); const inQty=tx.filter(t=>t.type==='IN').reduce((s,t)=>s+t.quantity,0), outQty=tx.filter(t=>t.type==='OUT').reduce((s,t)=>s+t.quantity,0), value=ps.reduce((s,p)=>s+p.quantity*p.purchasePrice,0), profit=ps.reduce((s,p)=>s+p.quantity*(p.salePrice-p.purchasePrice),0); Utils.$('#reportStats').innerHTML=`<div class="panel"><p>عدد المنتجات</p><h2>${ps.length}</h2></div><div class="panel"><p>قيمة المخزون</p><h2>${Utils.fmtMoney(value)}</h2></div><div class="panel"><p>إجمالي الوارد</p><h2>${Utils.fmtNum(inQty)}</h2></div><div class="panel"><p>إجمالي الصادر</p><h2>${Utils.fmtNum(outQty)}</h2></div><div class="panel"><p>الربح التقديري</p><h2>${Utils.fmtMoney(profit)}</h2></div>`; const map={}; tx.forEach(t=>{map[t.productName]??={in:0,out:0};map[t.productName][t.type==='IN'?'in':'out']+=t.quantity}); Utils.$('#reportTbody').innerHTML=Object.entries(map).sort((a,b)=>(b[1].in+b[1].out)-(a[1].in+a[1].out)).map(([n,v])=>`<tr><td>${Utils.esc(n)}</td><td>${v.in}</td><td>${v.out}</td><td>${v.in+v.out}</td></tr>`).join('')||'<tr><td colspan="4">لا توجد حركات</td></tr>'; }
+function renderInventoryCount(){ const key=Utils.$('#countMonth').value, [yy,mm]=(key||new Date().toISOString().slice(0,7)).split('-').map(Number), start=new Date(Date.UTC(yy,mm-1,1)), end=new Date(Date.UTC(yy,mm,1)), q=(Utils.$('#countSearch').value||'').toLowerCase(), f=Utils.$('#countFilter').value; const tx=TransactionRepo.all(); const rows=ProductRepo.all().map(p=>{ const netAfter=tx.filter(t=>t.productId===p.id&&new Date(t.date||t.createdAt)>=start).reduce((s,t)=>s+(t.type==='OUT'?-Number(t.quantity):Number(t.quantity||0)),0); const opening=Number(p.quantity||0)-netAfter, mt=tx.filter(t=>t.productId===p.id&&new Date(t.date||t.createdAt)>=start&&new Date(t.date||t.createdAt)<end), ins=mt.filter(t=>t.type==='IN').reduce((s,t)=>s+Number(t.quantity||0),0), outs=mt.filter(t=>t.type==='OUT').reduce((s,t)=>s+Number(t.quantity||0),0), expected=opening+ins-outs, actual=p._countActual, diff=actual===''||actual==null?null:Number(actual)-expected; return {...p,opening,ins,outs,expected,actual:actual??'',diff,moved:mt.length}; }).filter(p=>p.name.toLowerCase().includes(q)||String(p.sku).toLowerCase().includes(q)).filter(p=>f==='all'||f==='stock'&&Number(p.quantity)!==0||f==='zero'&&Number(p.quantity)===0||f==='moved'&&p.moved>0||f==='none'&&p.moved===0||f==='match'&&p.diff===0||f==='short'&&p.diff<0||f==='over'&&p.diff>0); Utils.$('#countTbody').innerHTML=rows.map(p=>`<tr><td>${Utils.esc(p.sku)}</td><td>${Utils.esc(p.name)}</td><td>${Utils.esc(p.unit||'—')}</td><td>${p.opening}</td><td>${p.ins}</td><td>${p.outs}</td><td>${p.expected}</td><td><input class="count-actual" data-id="${p.id}" value="${p.actual}" type="number"></td><td>${p.diff??'—'}</td><td>${p.diff==null?'—':p.diff===0?'مطابق':p.diff<0?'نقص':'زيادة'}</td><td><input class="count-note" data-id="${p.id}" placeholder="ملاحظة"></td></tr>`).join('')||'<tr><td colspan="11">لا توجد مواد</td></tr>'; }
 
 function navigate(viewName) {
   currentView = viewName;
@@ -1027,7 +1059,7 @@ function renderDashboard() {
 
   /* شريط التنبيهات */
   const outProducts = products.filter(p => p.quantity === 0);
-  const lowProducts = products.filter(p => p.quantity > 0 && p.quantity <= p.minStock);
+  const lowProducts = products.filter(p => p.quantity !== 0 && p.quantity <= Number(p.minStock ?? 0));
   const alertBox = Utils.$('#dashAlerts');
 
   if (outProducts.length || lowProducts.length) {
@@ -1136,15 +1168,17 @@ function renderProducts() {
 }
 
 function renderProductsTable() {
-  const { q, cat } = productFilters;
+  const { q, cat, supplier } = productFilters;
   const list = ProductRepo.all().filter(p =>
-    (cat === 'all' || p.category === cat) &&
+    (cat === 'all' || p.category === cat) && (supplier === 'all' || (supplier === 'none' ? !p.supplierId : p.supplierId === supplier)) &&
     (!q || p.name.includes(q) || p.sku.toLowerCase().includes(q.toLowerCase()))
   );
 
   const wrap  = Utils.$('#productsTableWrap');
   const empty = Utils.$('#productsEmpty');
   Utils.$('#productCount').textContent = Utils.arCount(list.length, 'منتج واحد', 'منتجان', 'منتجات', 'منتجًا');
+  const totalValue = ProductRepo.all().reduce((sum, p) => sum + (Number(p.quantity) || 0) * (Number(p.purchasePrice) || 0), 0);
+  Utils.$('#productsValueTotalAmount').textContent = Utils.fmtMoney(totalValue);
 
   if (!ProductRepo.all().length) {
     wrap.hidden = false; empty.hidden = false;
@@ -1163,9 +1197,10 @@ function renderProductsTable() {
         <span class="p-thumb" style="background:${hashColor(p.category)}">${Utils.esc(p.name[0])}</span>
         <span class="p-name"><strong>${Utils.esc(p.name)}</strong><small>${Utils.esc(p.sku)}</small></span>
       </div></td>
-      <td><span class="cat-chip">${Utils.esc(p.category)}</span></td>
+      <td><span class="cat-chip">${Utils.esc(p.category)}</span></td><td>${Utils.esc(contacts.find(c=>c.id===p.supplierId)?.name || 'بدون مورد')}</td>
       <td class="num">${Utils.fmtMoney(p.purchasePrice)}</td>
       <td class="num">${Utils.fmtMoney(p.salePrice)}</td>
+      <td class="num">${Utils.fmtMoney((Number(p.quantity) || 0) * (Number(p.purchasePrice) || 0))}</td>
       <td class="num"><div class="qty-cell">
         <button class="qty-btn plus" data-act="in"  data-id="${p.id}" title="استلام" aria-label="استلام">+</button>
         <b>${Utils.fmtNum(p.quantity)}</b>
@@ -1232,12 +1267,13 @@ function openProductModal(product = null) {
   Utils.$('#f-name').value     = product?.name ?? '';
   Utils.$('#f-sku').value      = product?.sku ?? '';
   Utils.$('#f-category').value = product?.category ?? '';
+  Utils.$('#f-supplier').value = product?.supplierId ?? '';
   Utils.$('#f-purchase').value = product?.purchasePrice ?? '';
   Utils.$('#f-sale').value     = product?.salePrice ?? '';
   Utils.$('#f-quantity').value = '';
   Utils.$('#f-min').value      = product?.minStock ?? '';
   clearFormErrors('productForm');
-  renderCategoryOptions();
+  renderCategoryOptions(); renderSupplierOptions();
   UI.openModal('#modal-product');
   setTimeout(() => Utils.$('#f-name').focus(), 80);
 }
@@ -1345,14 +1381,23 @@ function bindEvents() {
     const btn = e.target.closest('[data-view]');
     if (btn) navigate(btn.dataset.view);
   });
+  Utils.$('#btnLogout').addEventListener('click', async () => {
+    try { await MakhzaniWeb.logout(); } finally { sessionStorage.clear(); localStorage.removeItem('makhzani.remembered.v1'); document.body.classList.add('auth-locked'); location.reload(); }
+  });
+  Utils.$('#btnDeleteMovementLog').addEventListener('click', async () => { const total=TransactionRepo.all().length; if(!confirm(`تحذير: سيتم حذف سجل حركات هذا المستودع بالكامل (${total} حركة). لا يمكن التراجع، ولن يتغير رصيد المواد. متابعة؟`)) return; const password=prompt('أدخل كلمة مرور حساب المدير الحالي في Firebase:'); if(password===null)return; if(!confirm('تأكيد نهائي: حذف سجل الحركات فقط؟'))return; try { const n=await MakhzaniWeb.deleteBranchMovements(password); UI.toast(`تم حذف ${n} حركة، وبقيت أرصدة المواد كما هي`); } catch(e) { UI.toast('تعذر الحذف: '+e.message,'error'); } });
   Utils.$('#bellBtn').addEventListener('click', () => navigate('dashboard'));
   Utils.$('#btnExportReport').addEventListener('click', () => { const lines=['المنتج,الوارد,الصادر']; const m={}; TransactionRepo.all().forEach(t=>{m[t.productName]??={in:0,out:0};m[t.productName][t.type==='IN'?'in':'out']+=t.quantity}); Object.entries(m).forEach(([n,v])=>lines.push(`"${n.replaceAll('"','""')}",${v.in},${v.out}`)); Utils.download('makhzani-report.csv','\ufeff'+lines.join('\n'),'text/csv;charset=utf-8'); UI.toast('تم تصدير التقرير'); });
+  Utils.$('#countMonth').value=new Date().toISOString().slice(0,7); ['countMonth','countSearch','countFilter'].forEach(id=>Utils.$('#'+id).addEventListener('input',renderInventoryCount)); Utils.$('#countPrint').addEventListener('click',()=>window.print()); Utils.$('#countSave').addEventListener('click',async()=>{const key=Utils.$('#countMonth').value, rows=ProductRepo.all().map(p=>({productId:p.id,sku:p.sku,name:p.name,unit:p.unit||'',systemQuantity:p.quantity,actualQuantity:p._countActual??null})); try{await MakhzaniWeb.saveMonthlyCount(key,rows);UI.toast('تم اعتماد الجرد وحفظه في Firebase');}catch(e){UI.toast('تعذر حفظ الجرد: '+e.message,'error');}});
+  Utils.$('#countTbody').addEventListener('input',e=>{ if(!e.target.matches('.count-actual'))return; const p=ProductRepo.findById(e.target.dataset.id); if(p)p._countActual=e.target.value===''?'':Number(e.target.value); renderInventoryCount(); });
+  Utils.$('#btnBranchGuide').addEventListener('click', async () => { const id=prompt('معرّف الفرع بالإنجليزية، مثل branch-2:'); const name=prompt('اسم الفرع:'); if(!id||!name)return; try { await MakhzaniWeb.createBranch(id.trim(),name.trim()); UI.toast('تم إنشاء الفرع'); renderUsersBranches(); } catch(e) { UI.toast('تعذر إنشاء الفرع: '+e.message,'error'); } });
+  Utils.$('#btnUserGuide').addEventListener('click', () => UI.toast('لإضافة مستخدم مجانًا: Firebase Console ثم Authentication ثم Add user. لا تحفظ كلمة المرور في Firestore'));
+  Utils.$('#btnMigrateLegacy').addEventListener('click', async () => { if(!confirm('سيتم إضافة branch-main للسجلات القديمة فقط. متابعة؟')) return; try { const n=await MakhzaniWeb.migrateLegacyData('branch-main'); UI.toast(`تم ترحيل ${n} سجلًا بنجاح`); renderUsersBranches(); } catch(e) { UI.toast('تعذر الترحيل: '+e.message,'error'); } });
   Utils.$('#btnNewContact').addEventListener('click', () => { const name=prompt('اسم المورد أو العميل:'); if(!name||!name.trim()) return; const kind=(prompt('اكتب supplier للمورد أو customer للعميل:','supplier')||'supplier').toLowerCase()==='customer'?'customer':'supplier'; const phone=prompt('رقم الهاتف (اختياري):','')||''; contacts.unshift({id:Utils.uid(),name:name.trim(),kind,phone,email:'',note:''}); localStorage.setItem('makhzani.contacts.v1',JSON.stringify(contacts)); if(sessionStorage.getItem('makhzani.online')==='1') MakhzaniWeb.saveSnapshot({products:state.products,transactions:state.transactions,contacts}).catch(()=>UI.toast('تعذر مزامنة جهة الاتصال','error')); renderContacts(); UI.toast('تمت إضافة جهة الاتصال'); });
   Utils.$('#contactChips').addEventListener('click', e => { const b=e.target.closest('[data-kind]'); if(!b)return; contactKind=b.dataset.kind; Utils.$$('#contactChips .chip').forEach(x=>x.classList.toggle('is-active',x===b)); renderContacts(); });
 
   /* تفويض عام للأزرار الديناميكية */
   document.addEventListener('click', e => {
-    const dc=e.target.closest('[data-delete-contact]'); if(dc){ const i=contacts.findIndex(c=>c.id===dc.dataset.deleteContact); if(i>=0){contacts.splice(i,1);localStorage.setItem('makhzani.contacts.v1',JSON.stringify(contacts));renderContacts();UI.toast('تم حذف جهة الاتصال');} return; }
+    const dc=e.target.closest('[data-delete-contact]'); if(dc){ const i=contacts.findIndex(c=>c.id===dc.dataset.deleteContact); if(i<0)return; (async()=>{try{if(sessionStorage.getItem('makhzani.online')==='1') await MakhzaniWeb.deleteContact(dc.dataset.deleteContact); contacts.splice(i,1);localStorage.setItem('makhzani.contacts.v1',JSON.stringify(contacts));renderContacts();UI.toast('تم حذف جهة الاتصال نهائيًا');}catch(e){UI.toast('تعذر حذف جهة الاتصال: '+e.message,'error');}})(); return; }
     const stockBtn = e.target.closest('[data-open-stock]');
     if (stockBtn) return openStockModal(stockBtn.dataset.openStock, stockBtn.dataset.id);
     const gotoBtn = e.target.closest('[data-goto]');
@@ -1363,7 +1408,9 @@ function bindEvents() {
   Utils.$('#productSearch').addEventListener('input', e => { productFilters.q = e.target.value.trim(); renderProductsTable(); });
   Utils.$('#barcodeInput').addEventListener('keydown', e => { if(e.key !== 'Enter') return; e.preventDefault(); const code=e.target.value.trim(); const p=ProductRepo.findBySku(code); if(!p){ UI.toast('لم يتم العثور على منتج بهذا الباركود','error'); return; } Utils.$('#productSearch').value=p.sku; productFilters.q=p.sku; renderProductsTable(); e.target.select(); UI.toast(`تم العثور على: ${p.name}`); });
   Utils.$('#categoryFilter').addEventListener('change', e => { productFilters.cat = e.target.value; renderProductsTable(); });
+  Utils.$('#supplierFilter').addEventListener('change', e => { productFilters.supplier = e.target.value; renderProductsTable(); });
   Utils.$('#btnNewProduct').addEventListener('click', () => openProductModal());
+  Utils.$('#f-category').addEventListener('change', async e => { if (editingProductId || sessionStorage.getItem('makhzani.online') !== '1') return; const name=e.target.value.trim(); Utils.$('#f-sku').value=''; Utils.$('#f-sku').title=''; if(!name)return; try { const code=await MakhzaniWeb.previewProductCode(name); if(code) { Utils.$('#f-sku').value=code.sku; Utils.$('#f-sku').title=`بادئة التصنيف: ${code.codePrefix}`; } } catch(err) { console.warn('تعذر معاينة كود المنتج',err); } });
   Utils.$('#btnExportCsv').addEventListener('click', exportProductsCsv);
 
   /* جدول المنتجات: إجراءات الصف */
@@ -1403,7 +1450,7 @@ function bindEvents() {
   Utils.$('#txSearch').addEventListener('input', e => { txFilters.q = e.target.value.trim(); renderMovements(); });
 
   /* نموذج المنتج */
-  Utils.$('#productForm').addEventListener('submit', e => {
+  Utils.$('#productForm').addEventListener('submit', async e => {
     e.preventDefault();
     clearFormErrors('productForm');
     const data = {
@@ -1413,8 +1460,14 @@ function bindEvents() {
       purchasePrice: Number(Utils.$('#f-purchase').value) || 0,
       salePrice    : Number(Utils.$('#f-sale').value) || 0,
       quantity     : parseInt(Utils.$('#f-quantity').value, 10) || 0,
-      minStock     : Math.max(0, parseInt(Utils.$('#f-min').value, 10) || 0)
+      minStock     : Math.max(0, parseInt(Utils.$('#f-min').value, 10) || 0),
+      supplierId   : Utils.$('#f-supplier').value || null
     };
+    if (!editingProductId && sessionStorage.getItem('makhzani.online') === '1' && MakhzaniWeb.allocateProductCode) {
+      let known = ProductRepo.all().find(p => p.category === data.category && (p.codePrefix || p.categoryCode))?.codePrefix || ProductRepo.all().find(p => p.category === data.category && p.categoryCode)?.categoryCode || '';
+      if (!known) known = prompt(`أدخل بادئة كود المنتجات لأول مادة في «${data.category}» (مثال MM):`) || '';
+      try { const code=await MakhzaniWeb.allocateProductCode(data.category, known); data.sku=code.sku; data.categoryId=code.categoryId; data.categoryName=code.categoryName; data.categoryCode=code.categoryCode; data.codePrefix=code.codePrefix; Utils.$('#f-sku').value=data.sku; } catch(err) { return UI.toast(err.message==='CATEGORY_PREFIX_REQUIRED'?'يجب إدخال بادئة الكود':'تعذر إنشاء كود المادة: '+err.message,'error'); }
+    }
     const error = InventoryService.validateProductFields(data, editingProductId);
     if (error) { UI.toast(error, 'error'); return; }
     if (data.purchasePrice < 0 || data.salePrice < 0) return UI.toast('الأسعار لا يمكن أن تكون سالبة', 'error');
@@ -1526,17 +1579,17 @@ function seedData() {
 
 /* ── 9) الإقلاع ───────────────────────────────────────────── */
 async function init() {
-  if (window.MakhzaniWeb && MakhzaniWeb.anonymousLogin && !Auth.isLoggedIn()) {
-    try { await MakhzaniWeb.anonymousLogin(); } catch (e) { document.body.classList.add('auth-locked'); }
-  }
+  /* لا يوجد دخول مجهول: كل مستخدم يجب أن يملك حساب Firebase وملف users/{uid}. */
   if (!Auth.isLoggedIn()) document.body.classList.add('auth-locked');
   Utils.$('#loginForm').addEventListener('submit', async e => { e.preventDefault(); if (await Auth.login(Utils.$('#loginUser').value.trim(), Utils.$('#loginPass').value, Utils.$('#rememberMe').checked)) { document.body.classList.remove('auth-locked'); startApp(); } else Utils.$('#authError').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة'; });
   if (!Auth.isLoggedIn()) return;
   document.body.classList.remove('auth-locked');
   startApp();
 }
+function renderSupplierOptions(){ const select=Utils.$('#f-supplier'); if(!select)return; const current=select.value; select.innerHTML='<option value="">بدون مورد</option>'+contacts.filter(c=>c.kind==='supplier').map(c=>`<option value="${c.id}">${Utils.esc(c.name)}</option>`).join(''); if([...select.options].some(o=>o.value===current))select.value=current; const sf=Utils.$('#supplierFilter'); if(sf){const old=productFilters.supplier; sf.innerHTML='<option value="all">كل الموردين</option><option value="none">بدون مورد</option>'+contacts.filter(c=>c.kind==='supplier').map(c=>`<option value="${c.id}">${Utils.esc(c.name)}</option>`).join(''); sf.value=old;}}
 function startApp() {
   const online = sessionStorage.getItem('makhzani.online') === '1';
+  if (online) document.body.classList.add('firebase-loading');
   // Online mode is Firestore-first: never paint a stale local snapshot before it arrives.
   state = online ? { products: [], transactions: [] } : StorageGateway.load();
   if (!state) { state = CONFIG.seedDemo ? seedData() : { products: [], transactions: [] }; StorageGateway.save(state); }
@@ -1547,7 +1600,7 @@ function startApp() {
   bindEvents();
   refreshChrome();
   navigate('dashboard');
-  if (online) { UI.toast('جاري تحميل أحدث البيانات من Firebase...'); const applyRemote = remote => { state = {products:remote.products, transactions:remote.transactions}; localStorage.setItem(CONFIG.storageKey, JSON.stringify(state)); contacts.splice(0, contacts.length, ...(remote.contacts || [])); localStorage.setItem('makhzani.contacts.v1', JSON.stringify(contacts)); renderCurrentView(); refreshChrome(); }; MakhzaniWeb.snapshot().then(applyRemote).catch(() => UI.toast('تعذر الاتصال بقاعدة البيانات','error')); MakhzaniWeb.connectRealtime(event => { if (event && event.remote) applyRemote(event.remote); }); }
+  if (online) { const applyRemote = remote => { state = {products:remote.products, transactions:remote.transactions}; localStorage.setItem(CONFIG.storageKey, JSON.stringify(state)); contacts.splice(0, contacts.length, ...(remote.contacts || [])); localStorage.setItem('makhzani.contacts.v1', JSON.stringify(contacts)); document.body.classList.remove('firebase-loading'); renderCurrentView(); refreshChrome(); }; MakhzaniWeb.connectRealtime(event => { if (event && event.remote) applyRemote(event.remote); }); }
 }
 
 document.addEventListener('DOMContentLoaded', init);

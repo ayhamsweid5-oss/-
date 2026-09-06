@@ -2,12 +2,27 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    match /users/{id} { allow read, write: if signedIn() && id == request.auth.uid; }
+    function myBranch() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId; }
+    function isAdmin() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; }
+    function sameBranchExisting() { return signedIn() && resource.data.branchId == myBranch(); }
+    function sameBranchNew() { return signedIn() && request.resource.data.branchId == myBranch(); }
+    match /users/{id} { allow read: if isAdmin() || (signedIn() && id == request.auth.uid); allow write: if signedIn() && id == request.auth.uid && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['branchId','role'])); }
+    match /branches/{id} { allow read: if isAdmin() || (signedIn() && id == myBranch()); allow create, update: if isAdmin(); allow delete: if false; }
+    match /categories/{id} { allow read: if signedIn() && (resource == null || resource.data.branchId == myBranch()); allow create: if signedIn() && request.resource.data.branchId == myBranch(); allow update: if signedIn() && resource.data.branchId == myBranch() && request.resource.data.branchId == myBranch(); }
     match /materials/{id} {
-      allow read: if signedIn();
-      allow create, update, delete: if signedIn();
+      allow read: if (isAdmin() && !resource.data.keys().hasAny(['branchId'])) || (signedIn() && resource.data.branchId == myBranch());
+      allow create: if signedIn() && request.resource.data.branchId == myBranch();
+      allow update, delete: if (isAdmin() && !resource.data.keys().hasAny(['branchId']) && request.resource.data.branchId == myBranch()) || (signedIn() && resource.data.branchId == myBranch() && request.resource.data.branchId == myBranch());
     }
-    match /stockMovements/{id} { allow read, write: if signedIn(); }
-    match /contacts/{id} { allow read, write: if signedIn(); }
+    match /stockMovements/{id} { allow read: if isAdmin() || sameBranchExisting(); allow create: if sameBranchNew(); allow update: if sameBranchExisting() && request.resource.data.branchId == myBranch(); allow delete: if isAdmin() && sameBranchExisting(); }
+    match /contacts/{id} { allow read: if (isAdmin() && !resource.data.keys().hasAny(['branchId'])) || sameBranchExisting(); allow create: if sameBranchNew(); allow update: if (isAdmin() && !resource.data.keys().hasAny(['branchId']) && request.resource.data.branchId == myBranch()) || (sameBranchExisting() && request.resource.data.branchId == myBranch()); allow delete: if (isAdmin() && !resource.data.keys().hasAny(['branchId'])) || (sameBranchExisting()); }
+    match /monthlyInventories/{month} {
+      allow read: if signedIn() && resource.data.branchId == myBranch();
+      allow create: if signedIn() && request.resource.data.branchId == myBranch();
+      allow update: if signedIn() && resource.data.branchId == myBranch() && request.resource.data.branchId == myBranch();
+      match /items/{itemId} {
+        allow read, write: if signedIn() && get(/databases/$(database)/documents/monthlyInventories/$(month)).data.branchId == myBranch();
+      }
+    }
   }
 }
