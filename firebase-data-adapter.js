@@ -67,7 +67,7 @@
   async function deleteBranchMovements(password) { if (!valid || !user() || !user().email) throw Error('يجب استخدام حساب المدير ببريد وكلمة مرور'); const p=await profilePromise; if(p?.role!=='admin') throw Error('هذه العملية متاحة للمدير فقط'); const cred=firebase.auth.EmailAuthProvider.credential(user().email,password||''); await user().reauthenticateWithCredential(cred); const branchId=await branch(), snap=await db.collection('stockMovements').where('branchId','==',branchId).get(); let batch=db.batch(), pending=0; for (const d of snap.docs) { batch.delete(d.ref); pending++; if(pending===400){await batch.commit(); batch=db.batch(); pending=0;} } if(pending) await batch.commit(); return snap.size; }
   async function deleteContact(id) { if(!valid || !user()) throw Error('UNAUTHENTICATED'); const branchId=await branch(), ref=db.collection('contacts').doc(id), snap=await ref.get(), p=await profilePromise; if(!snap.exists || (snap.data().branchId!==branchId && !(p?.role==='admin' && !snap.data().branchId))) throw Error('جهة الاتصال غير موجودة في فرعك'); await ref.delete(); return {ok:true}; }
   async function allocateProductCode(categoryName, requestedCode) {
-    if(!valid || !user()) throw Error('UNAUTHENTICATED'); const branchId=await branch(); const code=String(requestedCode||'').trim(); const name=String(categoryName||'').trim(); if(!name) throw Error('اسم التصنيف مطلوب');
+    if(!valid || !user()) throw Error('UNAUTHENTICATED'); const branchId=await branch(); const categoryObject=categoryName&&typeof categoryName==='object'?categoryName:null; const code=textValue(requestedCode,['codePrefix','categoryCode','prefix','code']); const name=textValue(categoryName,['name','categoryName','label']) || textValue(categoryObject?.category,['name','categoryName','label']); const suppliedCategoryId=textValue(categoryObject?.categoryId,['id','categoryId']) || textValue(categoryObject?.id,['id','categoryId']); if(!name) throw Error('اسم التصنيف مطلوب');
     const key=encodeURIComponent(`${branchId}__${name}`), ref=db.collection('categories').doc(key), result={};
     await db.runTransaction(async tx=>{
       const snap=await tx.get(ref); const d=snap.exists?snap.data():null;
@@ -77,7 +77,7 @@
       const old=await tx.get(db.collection('materials').where('branchId','==',branchId));
       const escaped=codePrefix.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&');
       const pattern=new RegExp(`^${escaped}-([0-9]+)$`);
-      const categoryId=textValue(d?.categoryId,['id','categoryId']) || key;
+      const categoryId=textValue(d?.categoryId,['id','categoryId']) || suppliedCategoryId || key;
       old.docs.forEach(x=>{ const p=x.data(), linked=String(p.categoryId||'')===categoryId || String(p.category||p.categoryName||'').trim()===name; if(!linked) return; const m=String(p.sku||p.productCode||p.code||'').trim().match(pattern); if(m) last=Math.max(last,Number(m[1])); });
       const next=last+1; result.categoryId=categoryId; result.categoryName=textValue(d?.categoryName,['name','categoryName'])||name; result.codePrefix=codePrefix; result.categoryCode=codePrefix; result.lastSequence=next; result.sku=`${codePrefix}-${String(next).padStart(3,'0')}`;
       tx.set(ref,{branchId,categoryId,categoryName:result.categoryName,codePrefix,categoryCode:codePrefix,lastSequence:next,nextSequence:next+1,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
@@ -85,11 +85,11 @@
     return result;
   }
   async function previewProductCode(categoryName) {
-    if(!valid || !user()) throw Error('UNAUTHENTICATED'); const branchId=await branch(), name=String(categoryName||'').trim(); if(!name) return null;
+    if(!valid || !user()) throw Error('UNAUTHENTICATED'); const categoryObject=categoryName&&typeof categoryName==='object'?categoryName:null; const branchId=await branch(), name=textValue(categoryName,['name','categoryName','label']) || textValue(categoryObject?.category,['name','categoryName','label']); if(!name) return null;
     const key=encodeURIComponent(`${branchId}__${name}`), snap=await db.collection('categories').doc(key).get(), d=snap.exists?snap.data():null;
     let prefix=textValue(d?.codePrefix,['codePrefix','categoryCode','code','prefix']) || textValue(d?.categoryCode,['codePrefix','categoryCode','code','prefix']), last=Number(d?.lastSequence||d?.nextSequence-1||0);
     const old=await db.collection('materials').where('branchId','==',branchId).get();
-    const categoryId=textValue(d?.categoryId,['id','categoryId']) || key;
+    const categoryId=textValue(d?.categoryId,['id','categoryId']) || textValue(categoryObject?.categoryId,['id','categoryId']) || textValue(categoryObject?.id,['id','categoryId']) || key;
     const linked=p=>textValue(p.categoryId,['id','categoryId'])===categoryId || textValue(p.category,['name','categoryName'])===name || textValue(p.categoryName,['name','categoryName'])===name;
     if(!prefix){ old.docs.forEach(x=>{const p=x.data(); if(!linked(p))return; const s=String(p.sku||p.productCode||p.code||'').trim(); const i=s.lastIndexOf('-'); if(i>0 && /^\d+$/.test(s.slice(i+1))) prefix=s.slice(0,i); }); }
     if(prefix){ const escaped=prefix.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&'), pattern=new RegExp(`^${escaped}-([0-9]+)$`); old.docs.forEach(x=>{const p=x.data(); if(!linked(p))return; const m=String(p.sku||p.productCode||p.code||'').trim().match(pattern); if(m) last=Math.max(last,Number(m[1])); }); }
