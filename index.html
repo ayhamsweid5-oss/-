@@ -717,7 +717,7 @@ td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="firebase-data-adapter.js?v=51"></script>
+<script src="firebase-data-adapter.js?v=52"></script>
 <script>
 'use strict';
 /* ════════════════════════════════════════════════════════════
@@ -1450,6 +1450,8 @@ function bindEvents() {
       minStock     : Math.max(0, parseInt(Utils.$('#f-min').value, 10) || 0),
       supplierId   : Utils.$('#f-supplier').value || null
     };
+    // التعديل التعريفي لا يرسل quantity إطلاقًا؛ منعًا لتصفير الرصيد عند ترك الحقل فارغًا.
+    if (editingProductId) delete data.quantity;
     if (data.category && typeof data.category === 'object') {
       const c=data.category; data.category=String(c.name||c.categoryName||'').trim(); data.categoryId=String(c.id||c.categoryId||'').trim();
     }
